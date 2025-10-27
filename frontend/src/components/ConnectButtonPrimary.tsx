@@ -37,7 +37,15 @@ export default function ConnectButtonPrimary() {
 									<button
 										onClick={openConnectModal}
 										type="button"
-										className="btn-primary text-sm"
+										className="
+											px-6 py-2.5 rounded-md
+											bg-primary hover:bg-primary-hover
+											dark:bg-primary-dark dark:hover:bg-primary-dark-hover
+											text-white font-medium
+											shadow-soft hover:shadow-medium
+											transition-all duration-200
+											focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2
+										"
 									>
 										Connect Wallet
 									</button>
@@ -49,7 +57,13 @@ export default function ConnectButtonPrimary() {
 									<button
 										onClick={openChainModal}
 										type="button"
-										className="px-6 py-3 bg-red-500 text-white font-bold hover:bg-red-600 transition-all"
+										className="
+											px-6 py-2.5 rounded-md
+											bg-danger hover:bg-danger-dark
+											text-white font-medium
+											shadow-soft hover:shadow-medium
+											transition-all duration-200
+										"
 									>
 										Wrong Network
 									</button>
@@ -60,7 +74,14 @@ export default function ConnectButtonPrimary() {
 								<div className="flex gap-2">
 									<button
 										onClick={openChainModal}
-										className="btn-secondary text-sm"
+										className="
+											px-4 py-2 rounded-md text-sm
+											bg-surface-light hover:bg-surface-hover-light
+											dark:bg-surface-dark dark:hover:bg-surface-hover-dark
+											text-text-primary-light dark:text-text-primary-dark
+											border border-border-light dark:border-border-dark
+											transition-all duration-200
+										"
 										type="button"
 									>
 										{chain.name}
@@ -69,7 +90,14 @@ export default function ConnectButtonPrimary() {
 									<button
 										onClick={openAccountModal}
 										type="button"
-										className="btn-primary text-sm"
+										className="
+											px-4 py-2 rounded-md text-sm
+											bg-primary hover:bg-primary-hover
+											dark:bg-primary-dark dark:hover:bg-primary-dark-hover
+											text-white font-medium
+											shadow-soft hover:shadow-medium
+											transition-all duration-200
+										"
 									>
 										{account.displayName}
 									</button>

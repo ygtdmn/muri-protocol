@@ -1,3 +1,5 @@
+import { Heart, Github } from "lucide-react";
+
 interface FooterProps {
 	isDarkMode: boolean;
 }
@@ -5,61 +7,80 @@ interface FooterProps {
 export default function Footer({ isDarkMode }: FooterProps) {
 	return (
 		<footer
-			className={`px-4 md:px-8 py-6 md:py-8 border-t ${
-				isDarkMode
-					? "border-zinc-800 bg-zinc-950"
-					: "border-zinc-300 bg-zinc-50"
-			}`}
+			className={`
+				border-t backdrop-blur-sm
+				${
+					isDarkMode
+						? "border-border-dark bg-bg-dark/50"
+						: "border-border-light bg-bg-light/50"
+				}
+			`}
 		>
-			<div className="max-w-6xl mx-auto">
-				<div className="flex items-center justify-between">
+			<div className="max-w-6xl mx-auto px-4 md:px-6 lg:px-8 py-8">
+				<div className="flex flex-col md:flex-row items-center justify-between gap-4">
 					<p
-						className={`text-xs md:text-sm ${
-							isDarkMode ? "text-zinc-400" : "text-zinc-600"
-						}`}
+						className={`
+							text-sm flex items-center gap-2
+							${
+								isDarkMode 
+									? "text-text-secondary-dark" 
+									: "text-text-secondary-light"
+							}
+						`}
 					>
-						Wayfinder is created by{" "}
+						Made with <Heart className="w-4 h-4 text-danger fill-danger" /> by{" "}
 						<a
 							href="https://x.com/yigitduman"
 							target="_blank"
 							rel="noopener noreferrer"
-							className={
-								isDarkMode
-									? "text-zinc-200 underline hover:text-zinc-100"
-									: "text-zinc-800 underline hover:text-zinc-900"
-							}
+							className={`
+								font-medium transition-colors
+								${
+									isDarkMode
+										? "text-text-primary-dark hover:text-primary-dark"
+										: "text-text-primary-light hover:text-primary"
+								}
+							`}
 						>
 							Yigit Duman
-						</a>{" "}
-						and released under the{" "}
-						<span className={isDarkMode ? "text-zinc-200" : "text-zinc-800"}>
-							<a
-								href="https://github.com/ygtdmn/wayfinder/blob/main/LICENSE.md"
-								target="_blank"
-								rel="noopener noreferrer"
-								className={
-									isDarkMode
-										? "text-zinc-200 underline hover:text-zinc-100"
-										: "text-zinc-800 underline hover:text-zinc-900"
-								}
-							>
-								MIT License
-							</a>
-						</span>
-						.
+						</a>
 					</p>
-					<div className="flex items-center gap-4">
+					
+					<div className="flex items-center gap-6">
 						<a
 							href="https://github.com/ygtdmn/wayfinder"
 							target="_blank"
 							rel="noopener noreferrer"
-							className={
-								isDarkMode
-									? "text-zinc-200 underline hover:text-zinc-100"
-									: "text-zinc-800 underline hover:text-zinc-900"
-							}
+							className={`
+								flex items-center gap-2
+								text-sm font-medium
+								transition-colors
+								${
+									isDarkMode
+										? "text-text-secondary-dark hover:text-text-primary-dark"
+										: "text-text-secondary-light hover:text-text-primary-light"
+								}
+							`}
 						>
-							GitHub
+							<Github className="w-4 h-4" />
+							<span>GitHub</span>
+						</a>
+						
+						<a
+							href="https://github.com/ygtdmn/wayfinder/blob/main/LICENSE.md"
+							target="_blank"
+							rel="noopener noreferrer"
+							className={`
+								text-sm
+								transition-colors
+								${
+									isDarkMode
+										? "text-text-tertiary-dark hover:text-text-secondary-dark"
+										: "text-text-tertiary-light hover:text-text-secondary-light"
+								}
+							`}
+						>
+							MIT License
 						</a>
 					</div>
 				</div>

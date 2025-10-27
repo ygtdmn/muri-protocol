@@ -8,6 +8,7 @@ import {
 import type { Address } from "viem";
 import { wayfinderAbi } from "../abis/wayfinder-abi";
 import { useTheme } from "../hooks/useTheme";
+import { RefreshCw } from "lucide-react";
 
 interface RegisterWayfinderProps {
 	creator: Address;
@@ -62,25 +63,24 @@ export default function RegisterWayfinder({ creator, onSuccess }: RegisterWayfin
 	// Show success message for recent transaction
 	if (isSuccess) {
 		return (
-			<div className="p-4 bg-success bg-opacity-10 border border-success border-opacity-20">
-				<div className="flex items-center">
-					<svg
-						className="w-5 h-5 text-success mr-2"
-						fill="none"
-						stroke="currentColor"
-						viewBox="0 0 24 24"
-					>
-						<path
-							strokeLinecap="round"
-							strokeLinejoin="round"
-							strokeWidth={2}
-							d="M5 13l4 4L19 7"
-						/>
-					</svg>
-					<p className="text-sm text-success font-medium">
-						Contract registered with Wayfinder successfully!
-					</p>
-				</div>
+			<div
+				className={`
+					p-4 rounded-lg
+					${
+						isDarkMode
+							? "bg-success-dark-subtle border border-success-dark/20"
+							: "bg-success-subtle border border-success/20"
+					}
+				`}
+			>
+				<p
+					className={`
+						text-sm font-medium
+						${isDarkMode ? "text-success-dark" : "text-success"}
+					`}
+				>
+					✓ Contract registered with Wayfinder successfully!
+				</p>
 			</div>
 		);
 	}
@@ -88,59 +88,69 @@ export default function RegisterWayfinder({ creator, onSuccess }: RegisterWayfin
 	// Show already registered status
 	if (isRegistered) {
 		return (
-			<div className="p-4 bg-success bg-opacity-10 border border-success border-opacity-20">
-				<div className="flex items-center">
-					<svg
-						className="w-5 h-5 text-success mr-2"
-						fill="none"
-						stroke="currentColor"
-						viewBox="0 0 24 24"
-					>
-						<path
-							strokeLinecap="round"
-							strokeLinejoin="round"
-							strokeWidth={2}
-							d="M5 13l4 4L19 7"
-						/>
-					</svg>
-					<p className="text-sm text-success font-medium">
-						Contract is already registered with Wayfinder!
-					</p>
-				</div>
+			<div
+				className={`
+					p-4 rounded-lg
+					${
+						isDarkMode
+							? "bg-success-dark-subtle border border-success-dark/20"
+							: "bg-success-subtle border border-success/20"
+					}
+				`}
+			>
+				<p
+					className={`
+						text-sm font-medium
+						${isDarkMode ? "text-success-dark" : "text-success"}
+					`}
+				>
+					✓ Contract is already registered with Wayfinder
+				</p>
 			</div>
 		);
 	}
 
 	return (
 		<div
-			className={`p-4 ${
-				isDarkMode
-					? "bg-zinc-800 border-zinc-700"
-					: "bg-zinc-100 border-zinc-300"
-			} border`}
+			className={`
+				p-5 rounded-lg
+				${
+					isDarkMode
+						? "bg-surface-hover-dark border border-border-dark"
+						: "bg-surface-hover-light border border-border-light"
+				}
+			`}
 		>
-			<div className="flex items-start justify-between">
-				<div>
-					<h4
-						className={`font-medium ${
-							isDarkMode ? "text-zinc-100" : "text-zinc-900"
-						}`}
-					>
-						Register with Wayfinder
-					</h4>
-					<p
-						className={`text-sm ${
-							isDarkMode ? "text-zinc-400" : "text-zinc-600"
-						} mt-1`}
-					>
-						Required to enable Wayfinder features for this collection
-					</p>
-				</div>
+			<div className="mb-4">
+				<h4
+					className={`
+						font-semibold text-base mb-1
+						${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
+					`}
+				>
+					2. Register with Wayfinder
+				</h4>
+				<p
+					className={`
+						text-sm
+						${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
+					`}
+				>
+					This enables multi-URI storage features for your collection
+				</p>
 			</div>
 
 			<button
 				onClick={handleRegister}
-				className="btn-primary w-full mt-4"
+				className={`
+					w-full px-6 py-3 rounded-lg font-semibold
+					transition-all duration-200
+					${
+						isPending || isConfirming || !creator || isRegistered || !!simulateError
+							? "opacity-50 cursor-not-allowed bg-surface-hover-light dark:bg-surface-hover-dark text-text-tertiary-light dark:text-text-tertiary-dark"
+							: "bg-primary hover:bg-primary-hover dark:bg-primary-dark dark:hover:bg-primary-dark-hover text-white shadow-soft hover:shadow-medium"
+					}
+				`}
 				disabled={
 					isPending ||
 					isConfirming ||
@@ -150,48 +160,46 @@ export default function RegisterWayfinder({ creator, onSuccess }: RegisterWayfin
 				}
 			>
 				{isPending || isConfirming ? (
-					<>
-						<svg
-							className="animate-spin -ml-1 mr-2 h-4 w-4 inline"
-							fill="none"
-							viewBox="0 0 24 24"
-						>
-							<circle
-								className="opacity-25"
-								cx="12"
-								cy="12"
-								r="10"
-								stroke="currentColor"
-								strokeWidth="4"
-							></circle>
-							<path
-								className="opacity-75"
-								fill="currentColor"
-								d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-							></path>
-						</svg>
+					<span className="flex items-center justify-center gap-2">
+						<RefreshCw className="w-4 h-4 animate-spin" />
 						{isPending ? "Registering..." : "Confirming..."}
-					</>
+					</span>
 				) : isRegistered ? (
-					"Already Registered"
+					"✓ Already Registered"
 				) : (
 					"Register Contract"
 				)}
 			</button>
 
 			{simulateError && (
-				<div className="mt-2 p-3 bg-orange-500 bg-opacity-10 border border-orange-500 border-opacity-30 rounded">
-					<p className="text-sm text-orange-300 font-medium">
-						Transaction will fail:
-					</p>
-					<p className="text-xs text-orange-200 mt-1">
-						{simulateError.message}
+				<div
+					className={`
+						mt-3 p-3 rounded-lg
+						${
+							isDarkMode
+								? "bg-warning-dark-subtle border border-warning-dark/30"
+								: "bg-warning-subtle border border-warning/30"
+						}
+					`}
+				>
+					<p
+						className={`
+							text-sm font-medium
+							${isDarkMode ? "text-warning-dark" : "text-warning"}
+						`}
+					>
+						Transaction will fail: {simulateError.message}
 					</p>
 				</div>
 			)}
 
 			{hash && !isSuccess && (
-				<p className="text-sm text-zinc-400 mt-2">
+				<p
+					className={`
+						text-sm mt-2
+						${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
+					`}
+				>
 					Transaction submitted. Waiting for confirmation...
 				</p>
 			)}

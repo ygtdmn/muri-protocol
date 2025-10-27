@@ -11,11 +11,14 @@ import RegisterExtension from "../components/RegisterExtension";
 import RegisterWayfinder from "../components/RegisterWayfinder";
 import { useManifoldAuth } from "../hooks/useManifoldAuth";
 import { useReadContract } from "wagmi";
-import { Palette, Heart } from "lucide-react";
+import { Palette, Heart, RefreshCw, ArrowLeft, Search } from "lucide-react";
 import Header from "../components/Header";
 import ConnectButtonPrimary from "../components/ConnectButtonPrimary";
 import { useTheme } from "../hooks/useTheme";
 import Footer from "../components/Footer";
+import { CollectionCard } from "../components/features/CollectionCard";
+import { Alert } from "../components/ui/Alert";
+import { EmptyState } from "../components/ui/EmptyState";
 
 type CreatorCoreInfo = {
 	address: Address;
@@ -267,89 +270,108 @@ export default function Collections() {
 	return (
 		<div
 			className={`scroll-smooth min-h-screen flex flex-col ${
-				isDarkMode ? "bg-zinc-950 text-zinc-100" : "bg-zinc-50 text-zinc-900"
+				isDarkMode ? "bg-bg-dark text-text-primary-dark" : "bg-bg-light text-text-primary-light"
 			}`}
 		>
 			<Header isDarkMode={isDarkMode} toggleTheme={toggleTheme} />
 
 			{/* Role Selection - Centered */}
 			{!userRole && (
-				<div className="flex-grow flex items-center justify-center p-4">
-					<div className="max-w-6xl w-full">
-						<div className="px-4 md:px-8 py-8">
-							<div>
-								<div className="text-center mb-8">
-									<h1
-										className={`text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight mb-4 md:mb-6 ${
-											isDarkMode ? "text-zinc-100" : "text-zinc-900"
-										}`}
-									>
-										Welcome to Wayfinder
-									</h1>
-									<p
-										className={`text-sm md:text-base lg:text-lg font-medium ${
-											isDarkMode ? "text-zinc-300" : "text-zinc-600"
-										}`}
-									>
-										Are you here as a creator or collector?
-									</p>
-								</div>
+				<div className="flex-grow flex items-center justify-center p-4 relative overflow-hidden">
+					{/* Warm gradient background */}
+					<div className={`absolute inset-0 pointer-events-none ${isDarkMode ? "opacity-20" : "opacity-10"}`}>
+						<div className="absolute top-0 right-0 w-[600px] h-[600px] bg-gradient-to-br from-primary to-secondary rounded-full blur-3xl" />
+						<div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-gradient-to-tr from-secondary to-primary rounded-full blur-3xl" />
+					</div>
 
-								<div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-3xl mx-auto">
-									{/* Creator Card */}
-									<button
-										onClick={() => setUserRole("creator")}
-										className="card-hover p-12 group aspect-square flex flex-col justify-center"
-									>
-										<div className="text-center">
-											<div className="w-16 h-16 bg-orange-500 bg-opacity-20 rounded-xl flex items-center justify-center mx-auto mb-6 group-hover:bg-opacity-30 transition-all">
-												<Palette className="w-8 h-8 text-orange-400" />
-											</div>
-											<h3
-												className={`text-2xl font-bold ${
-													isDarkMode ? "text-white" : "text-zinc-900"
-												} mb-4`}
-											>
-												Creator
+					<div className="max-w-5xl w-full relative z-10">
+						<div className="px-4 md:px-6 lg:px-8 py-12">
+							<div className="text-center mb-16">
+								<h1
+									className={`
+										text-5xl md:text-6xl font-bold tracking-tight mb-6 leading-tight
+										${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
+									`}
+								>
+									Welcome to{" "}
+									<span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+										Wayfinder
+									</span>
+								</h1>
+								<p
+									className={`
+										text-xl md:text-2xl max-w-2xl mx-auto leading-relaxed
+										${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
+									`}
+								>
+									Are you creating art or collecting it?
+								</p>
+							</div>
+
+							<div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+								{/* Creator Card - BIGGER & WARMER */}
+								<button
+									onClick={() => setUserRole("creator")}
+									className={`
+										group p-12 md:p-14 rounded-3xl
+										border-2 transition-all duration-300
+										${
+											isDarkMode
+												? "bg-surface-dark/80 backdrop-blur-sm border-border-dark hover:border-primary-dark hover:shadow-[0_8px_32px_rgba(96,165,250,0.3)]"
+												: "bg-surface-light/80 backdrop-blur-sm border-border-light hover:border-primary hover:shadow-[0_8px_32px_rgba(59,130,246,0.2)]"
+										}
+										hover:scale-105 hover:-translate-y-2
+									`}
+								>
+									<div className="text-center space-y-6">
+										<div className={`w-20 h-20 rounded-2xl flex items-center justify-center mx-auto transition-all duration-300 group-hover:scale-110 ${
+											isDarkMode ? "bg-primary-dark-subtle group-hover:bg-primary-dark/30" : "bg-primary-subtle group-hover:bg-primary/20"
+										}`}>
+											<Palette className={`w-10 h-10 ${isDarkMode ? "text-primary-dark" : "text-primary"}`} />
+										</div>
+										
+										<div>
+											<h3 className={`text-3xl font-bold mb-3 ${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}`}>
+												🎨 Creator
 											</h3>
-											<p
-												className={`${
-													isDarkMode ? "text-zinc-300" : "text-zinc-600"
-												} text-md leading-relaxed`}
-											>
-												Create and manage your tokens with full control over
-												metadata and collector permissions.
+											<p className={`text-lg leading-relaxed ${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}`}>
+												Mint NFTs with automatic backup protection. Keep full control over your work.
 											</p>
 										</div>
-									</button>
+									</div>
+								</button>
 
-									{/* Collector Card */}
-									<button
-										onClick={() => setUserRole("collector")}
-										className="card-hover p-12 group aspect-square flex flex-col justify-center"
-									>
-										<div className="text-center">
-											<div className="w-16 h-16 bg-purple-500 bg-opacity-20 rounded-xl flex items-center justify-center mx-auto mb-6 group-hover:bg-opacity-30 transition-all">
-												<Heart className="w-8 h-8 text-purple-400" />
-											</div>
-											<h3
-												className={`text-2xl font-bold ${
-													isDarkMode ? "text-white" : "text-zinc-900"
-												} mb-4`}
-											>
-												Collector
+								{/* Collector Card - BIGGER & WARMER */}
+								<button
+									onClick={() => setUserRole("collector")}
+									className={`
+										group p-12 md:p-14 rounded-3xl
+										border-2 transition-all duration-300
+										${
+											isDarkMode
+												? "bg-surface-dark/80 backdrop-blur-sm border-border-dark hover:border-secondary-dark hover:shadow-[0_8px_32px_rgba(251,146,60,0.3)]"
+												: "bg-surface-light/80 backdrop-blur-sm border-border-light hover:border-secondary hover:shadow-[0_8px_32px_rgba(249,115,22,0.2)]"
+										}
+										hover:scale-105 hover:-translate-y-2
+									`}
+								>
+									<div className="text-center space-y-6">
+										<div className={`w-20 h-20 rounded-2xl flex items-center justify-center mx-auto transition-all duration-300 group-hover:scale-110 ${
+											isDarkMode ? "bg-secondary-dark-subtle group-hover:bg-secondary-dark/30" : "bg-secondary-subtle group-hover:bg-secondary/20"
+										}`}>
+											<Heart className={`w-10 h-10 ${isDarkMode ? "text-secondary-dark" : "text-secondary"}`} />
+										</div>
+										
+										<div>
+											<h3 className={`text-3xl font-bold mb-3 ${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}`}>
+												❤️ Collector
 											</h3>
-											<p
-												className={`${
-													isDarkMode ? "text-zinc-300" : "text-zinc-600"
-												} text-md leading-relaxed`}
-											>
-												Customize and personalize the tokens you own based on
-												artist-defined permissions.
+											<p className={`text-lg leading-relaxed ${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}`}>
+												Help preserve art you own. Add backup links and customize your pieces.
 											</p>
 										</div>
-									</button>
-								</div>
+									</div>
+								</button>
 							</div>
 						</div>
 					</div>
@@ -360,67 +382,66 @@ export default function Collections() {
 			<div className="flex-grow">
 				{/* Creator Interface - Normal Layout */}
 				{userRole === "creator" && (
-					<div className="px-4 md:px-8 py-8 max-w-6xl mx-auto space-y-6">
+					<div className="px-4 md:px-6 lg:px-8 py-8 md:py-12 max-w-6xl mx-auto space-y-10">
 						<>
-							<div className="flex items-center gap-4 mb-6">
+							{/* Header with back button */}
+							<div className="flex items-center justify-between">
 								<button
 									onClick={() => setUserRole(null)}
-									className="btn-ghost text-sm"
+									className={`
+										flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium
+										transition-all duration-200
+										${
+											isDarkMode
+												? "text-text-secondary-dark hover:text-text-primary-dark hover:bg-surface-hover-dark"
+												: "text-text-secondary-light hover:text-text-primary-light hover:bg-surface-hover-light"
+										}
+									`}
 								>
-									← Back to role selection
+									<ArrowLeft className="w-5 h-5" />
+									<span>Back</span>
 								</button>
 							</div>
 
 							<div>
-								<div className="flex items-center justify-between mb-6">
+								<div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
 									<div>
 										<h2
-											className={`text-lg md:text-xl font-bold ${
-												isDarkMode ? "text-zinc-100" : "text-zinc-900"
-											}`}
+											className={`
+												text-4xl md:text-5xl font-bold mb-3
+												${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
+											`}
 										>
 											Your Collections
 										</h2>
 										<p
-											className={`text-sm md:text-base ${
-												isDarkMode ? "text-zinc-300" : "text-zinc-600"
-											}`}
+											className={`
+												text-lg md:text-xl
+												${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
+											`}
 										>
-											Select a collection to manage or paste an address below
+											Select a collection to start creating
 										</p>
 									</div>
 									{isAuthenticated && (
 										<button
 											onClick={discoverCreatorCores}
 											disabled={discovering}
-											className="btn-ghost"
+											className={`
+												flex items-center gap-2 px-4 py-2 rounded-md
+												transition-all duration-200
+												${
+													isDarkMode
+														? "bg-surface-dark hover:bg-surface-hover-dark text-text-primary-dark border border-border-dark"
+														: "bg-surface-light hover:bg-surface-hover-light text-text-primary-light border border-border-light shadow-soft"
+												}
+												disabled:opacity-50 disabled:cursor-not-allowed
+											`}
 										>
-											{discovering ? (
-												<>
-													<svg
-														className="animate-spin -ml-1 mr-2 h-4 w-4 text-zinc-400 inline"
-														fill="none"
-														viewBox="0 0 24 24"
-													>
-														<circle
-															className="opacity-25"
-															cx="12"
-															cy="12"
-															r="10"
-															stroke="currentColor"
-															strokeWidth="4"
-														></circle>
-														<path
-															className="opacity-75"
-															fill="currentColor"
-															d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-														></path>
-													</svg>
-													Searching...
-												</>
-											) : (
-												"Refresh"
-											)}
+											<RefreshCw className={`w-4 h-4 ${discovering ? 'animate-spin' : ''}`} />
+											<span className="text-sm font-medium">
+												{discovering ? "Searching..." : "Refresh"}
+											</span>
 										</button>
 									)}
 								</div>
@@ -428,192 +449,124 @@ export default function Collections() {
 								{discovered.length > 0 ? (
 									<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
 										{discovered.map((c) => (
-											<button
+											<CollectionCard
 												key={c.address}
-												className="card-hover text-left"
+												address={c.address}
+												name={c.name}
+												type={c.type}
 												onClick={() => setResolved(c)}
-											>
-												<div className="flex items-start justify-between">
-													<div className="flex-1 min-w-0">
-														<p
-															className={`text-sm font-medium ${
-																isDarkMode ? "text-zinc-100" : "text-zinc-900"
-															}`}
-														>
-															{c.name || "Unnamed Collection"}
-														</p>
-														<p
-															className={`text-xs ${
-																isDarkMode ? "text-zinc-400" : "text-zinc-600"
-															} mt-1`}
-														>
-															{c.type}
-														</p>
-														<p
-															className={`text-xs ${
-																isDarkMode ? "text-zinc-500" : "text-zinc-500"
-															} truncate mt-1`}
-														>
-															{c.address}
-														</p>
-													</div>
-													{c.type === "ERC721" ? (
-														<svg
-															className={`w-5 h-5 ${
-																isDarkMode ? "text-zinc-400" : "text-zinc-600"
-															} ml-2`}
-															fill="none"
-															stroke="currentColor"
-															viewBox="0 0 24 24"
-														>
-															<path
-																strokeLinecap="round"
-																strokeLinejoin="round"
-																strokeWidth={2}
-																d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
-															/>
-														</svg>
-													) : (
-														<svg
-															className={`w-5 h-5 ${
-																isDarkMode ? "text-zinc-400" : "text-zinc-600"
-															} ml-2`}
-															fill="none"
-															stroke="currentColor"
-															viewBox="0 0 24 24"
-														>
-															<path
-																strokeLinecap="round"
-																strokeLinejoin="round"
-																strokeWidth={2}
-																d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-															/>
-														</svg>
-													)}
-												</div>
-											</button>
+												isDarkMode={isDarkMode}
+											/>
 										))}
 									</div>
 								) : (
 									<div
-										className={`text-center py-8 ${
-											isDarkMode
-												? "bg-zinc-800"
-												: "bg-white border border-zinc-300"
-										}`}
+										className={`
+											rounded-lg p-8
+											${
+												isDarkMode
+													? "bg-surface-dark border border-border-dark"
+													: "bg-surface-light border border-border-light"
+											}
+										`}
 									>
 										{!address ? (
-											<div className="space-y-4">
-												<p
-													className={
-														isDarkMode ? "text-zinc-400" : "text-zinc-600"
-													}
-												>
-													Connect your wallet to get started
-												</p>
-												<div className="flex justify-center">
-													<ConnectButtonPrimary />
-												</div>
-											</div>
+											<EmptyState
+												icon={<Search className="w-full h-full" />}
+												title="Connect Your Wallet"
+												description="Connect your wallet to discover and manage your Manifold collections"
+												action={<ConnectButtonPrimary />}
+											/>
 										) : !isAuthenticated ? (
-											<div className="space-y-4">
-												<p
-													className={
-														isDarkMode ? "text-zinc-400" : "text-zinc-600"
+											<div className="text-center space-y-6">
+												<EmptyState
+													icon={<Search className="w-full h-full" />}
+													title="Sign in to Manifold"
+													description="Authenticate with Manifold to automatically discover your Creator Core collections"
+													action={
+														<button
+															onClick={async () => {
+																try {
+																	setAuthError(null);
+																	await authenticate();
+																} catch (error) {
+																	setAuthError(error instanceof Error ? error.message : 'Authentication failed');
+																}
+															}}
+															disabled={isAuthenticating}
+															className={`
+																px-6 py-3 rounded-lg font-semibold
+																bg-primary hover:bg-primary-hover
+																dark:bg-primary-dark dark:hover:bg-primary-dark-hover
+																text-white
+																shadow-soft hover:shadow-medium
+																transition-all duration-200
+																disabled:opacity-50
+															`}
+														>
+															{isAuthenticating ? "Signing in..." : "Sign in to Manifold"}
+														</button>
 													}
-												>
-													Sign in to Manifold to discover your collections
-													automatically
-												</p>
-												<button
-													onClick={async () => {
-														try {
-															setAuthError(null);
-															await authenticate();
-														} catch (error) {
-															setAuthError(error instanceof Error ? error.message : 'Authentication failed');
-														}
-													}}
-													disabled={isAuthenticating}
-													className="btn-primary text-sm"
-												>
-													{isAuthenticating
-														? "Signing..."
-														: "Sign in to Manifold"}
-												</button>
+												/>
+												
 												{authError && (
-													<div className={`mt-4 p-3 rounded-lg border ${
-														isDarkMode 
-															? "bg-red-900 bg-opacity-20 border-red-500 border-opacity-30" 
-															: "bg-red-50 border-red-300"
-													}`}>
-														<p className={`text-sm ${
-															isDarkMode ? "text-red-300" : "text-red-800"
-														}`}>
-															{authError}
-														</p>
+													<Alert variant="danger" title="Authentication Error">
+														{authError}
 														{authError.includes("not registered") && (
 															<a 
 																href="https://studio.manifold.xyz" 
 																target="_blank" 
 																rel="noopener noreferrer"
-																className={`text-sm underline mt-2 inline-block ${
-																	isDarkMode ? "text-red-200" : "text-red-600"
-																}`}
+																className="block mt-2 font-medium underline"
 															>
 																Register at studio.manifold.xyz →
 															</a>
 														)}
-													</div>
+													</Alert>
 												)}
+												
 												<p
-													className={`text-sm ${
-														isDarkMode ? "text-zinc-500" : "text-zinc-500"
-													}`}
+													className={`
+														text-sm
+														${isDarkMode ? "text-text-tertiary-dark" : "text-text-tertiary-light"}
+													`}
 												>
 													Or enter your Creator Core contract address below
 												</p>
 											</div>
 										) : (
-											<>
-												<p
-													className={
-														isDarkMode ? "text-zinc-400" : "text-zinc-600"
-													}
-												>
-													No collections found.
-												</p>
-												<p
-													className={`text-sm ${
-														isDarkMode ? "text-zinc-500" : "text-zinc-500"
-													} mt-2`}
-												>
-													Enter your Manifold Creator Core contract address
-													below.
-												</p>
-											</>
-										)}
-										{!discovering && address && (
-											<div
-												className={`mt-4 text-xs ${
-													isDarkMode ? "text-zinc-500" : "text-zinc-500"
-												}`}
-											>
-												<p>
-													You can find your collections at{" "}
-													<a
-														href="https://studio.manifold.xyz"
-														target="_blank"
-														rel="noopener noreferrer"
-														className={
-															isDarkMode
-																? "text-white underline"
-																: "text-zinc-900 underline"
-														}
+											<div className="text-center space-y-4">
+												<EmptyState
+													icon={<Search className="w-full h-full" />}
+													title="No Collections Found"
+													description="We couldn't find any Manifold collections for your wallet. Enter a collection address below to continue."
+												/>
+												
+												{!discovering && address && (
+													<p
+														className={`
+															text-sm
+															${isDarkMode ? "text-text-tertiary-dark" : "text-text-tertiary-light"}
+														`}
 													>
-														studio.manifold.xyz
-													</a>
-												</p>
+														Create collections at{" "}
+														<a
+															href="https://studio.manifold.xyz"
+															target="_blank"
+															rel="noopener noreferrer"
+															className={`
+																font-medium underline
+																${
+																	isDarkMode
+																		? "text-primary-dark hover:text-primary-dark-hover"
+																		: "text-primary hover:text-primary-hover"
+																}
+															`}
+														>
+															studio.manifold.xyz
+														</a>
+													</p>
+												)}
 											</div>
 										)}
 									</div>
@@ -622,29 +575,67 @@ export default function Collections() {
 
 							{address && (
 								<>
-									<div className="divider"></div>
+									<div
+										className={`
+											my-8 border-t
+											${isDarkMode ? "border-border-dark" : "border-border-light"}
+										`}
+									/>
 
 									<div>
 										<h3
-											className={`text-lg md:text-xl font-bold ${
-												isDarkMode ? "text-zinc-100" : "text-zinc-900"
-											} mb-4`}
+											className={`
+												text-xl font-bold mb-2
+												${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
+											`}
 										>
 											Or enter a collection address
 										</h3>
+										<p
+											className={`
+												text-sm mb-4
+												${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
+											`}
+										>
+											Have a specific Manifold Creator Core contract? Paste it here
+										</p>
 										<div className="flex gap-3">
 											<input
-												className="input-field flex-1"
+												className={`
+													flex-1 px-4 py-3 rounded-md font-mono text-sm
+													border transition-all duration-200
+													${
+														isDarkMode
+															? "bg-surface-dark border-border-dark text-text-primary-dark placeholder:text-text-tertiary-dark focus:border-primary-dark"
+															: "bg-surface-light border-border-light text-text-primary-light placeholder:text-text-tertiary-light focus:border-primary"
+													}
+													focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent
+												`}
 												value={creatorInput}
 												onChange={(e) => setCreatorInput(e.target.value)}
-												placeholder="0x... collection address"
+												placeholder="0x..."
 											/>
 											<button
-												className="btn-primary"
+												className={`
+													px-6 py-3 rounded-lg font-semibold
+													bg-primary hover:bg-primary-hover
+													dark:bg-primary-dark dark:hover:bg-primary-dark-hover
+													text-white
+													shadow-soft hover:shadow-medium
+													transition-all duration-200
+													disabled:opacity-50 disabled:cursor-not-allowed
+												`}
 												onClick={checkCreator}
 												disabled={!creatorInput || checking}
 											>
-												{checking ? "Checking..." : "Check"}
+												{checking ? (
+													<span className="flex items-center gap-2">
+														<RefreshCw className="w-4 h-4 animate-spin" />
+														Checking...
+													</span>
+												) : (
+													"Check"
+												)}
 											</button>
 										</div>
 									</div>
@@ -652,14 +643,24 @@ export default function Collections() {
 							)}
 
 							{resolved && (
-								<div className="card animate-slide-up">
-									<div className="space-y-4">
-										<div className="flex items-center justify-between">
-											<div>
+								<div
+									className={`
+										p-8 md:p-10 rounded-3xl animate-slide-up border-2
+										${
+											isDarkMode
+												? "bg-surface-dark border-border-dark shadow-medium"
+												: "bg-surface-light border-border-light shadow-strong"
+										}
+									`}
+								>
+									<div className="space-y-8">
+										<div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
+											<div className="flex-1">
 												<h3
-													className={`text-lg font-semibold ${
-														isDarkMode ? "text-zinc-100" : "text-zinc-900"
-													}`}
+													className={`
+														text-3xl font-bold mb-3
+														${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
+													`}
 												>
 													{resolved.name ||
 														`${
@@ -671,36 +672,43 @@ export default function Collections() {
 														} Collection`}
 												</h3>
 												<p
-													className={`text-sm ${
-														isDarkMode ? "text-zinc-400" : "text-zinc-600"
-													} mt-1`}
+													className={`
+														text-sm font-mono
+														${isDarkMode ? "text-text-tertiary-dark" : "text-text-tertiary-light"}
+													`}
 												>
 													{resolved.address}
 												</p>
 											</div>
-											<div className="flex flex-col gap-2">
-												<div
-													className={`px-3 py-1 text-xs font-medium rounded ${
-														isExtensionRegistered
-															? "bg-success bg-opacity-20 text-success"
-															: isDarkMode
-															? "bg-zinc-700 text-zinc-400"
-															: "bg-zinc-200 text-zinc-600"
-													}`}
+											<div className="flex gap-3">
+												<span
+													className={`
+														px-4 py-2 text-sm font-bold rounded-full
+														${
+															isExtensionRegistered
+																? "bg-success-subtle dark:bg-success-dark-subtle text-success dark:text-success-dark border-2 border-success/30"
+																: isDarkMode
+																? "bg-surface-hover-dark text-text-tertiary-dark border-2 border-border-dark"
+																: "bg-surface-hover-light text-text-tertiary-light border-2 border-border-light"
+														}
+													`}
 												>
-													Extension: {isExtensionRegistered ? "✓" : "✗"}
-												</div>
-												<div
-													className={`px-3 py-1 text-xs font-medium rounded ${
-														isContractRegistered
-															? "bg-success bg-opacity-20 text-success"
-															: isDarkMode
-															? "bg-zinc-700 text-zinc-400"
-															: "bg-zinc-200 text-zinc-600"
-													}`}
+													{isExtensionRegistered ? "✓ Extension" : "Extension"}
+												</span>
+												<span
+													className={`
+														px-4 py-2 text-sm font-bold rounded-full
+														${
+															isContractRegistered
+																? "bg-success-subtle dark:bg-success-dark-subtle text-success dark:text-success-dark border-2 border-success/30"
+																: isDarkMode
+																? "bg-surface-hover-dark text-text-tertiary-dark border-2 border-border-dark"
+																: "bg-surface-hover-light text-text-tertiary-light border-2 border-border-light"
+														}
+													`}
 												>
-													Wayfinder: {isContractRegistered ? "✓" : "✗"}
-												</div>
+													{isContractRegistered ? "✓ Wayfinder" : "Wayfinder"}
+												</span>
 											</div>
 										</div>
 
@@ -719,48 +727,29 @@ export default function Collections() {
 										)}
 
 										{!canProceed && (
-											<div
-												className={`p-4 mb-4 border ${
-													isDarkMode
-														? "bg-yellow-500 bg-opacity-10 border-yellow-500 border-opacity-30"
-														: "bg-yellow-50 border-yellow-300"
-												}`}
-											>
-												<div className="flex items-center gap-2">
-													<svg
-														className={`w-5 h-5 ${
-															isDarkMode ? "text-yellow-400" : "text-yellow-600"
-														}`}
-														fill="none"
-														stroke="currentColor"
-														viewBox="0 0 24 24"
-													>
-														<path
-															strokeLinecap="round"
-															strokeLinejoin="round"
-															strokeWidth={2}
-															d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-														/>
-													</svg>
-													<p
-														className={`text-sm font-medium ${
-															isDarkMode ? "text-yellow-300" : "text-yellow-800"
-														}`}
-													>
-														Complete both registration steps above to enable
-														minting and updating
-													</p>
-												</div>
-											</div>
+											<Alert variant="warning" title="Setup Required">
+												Complete both registration steps above to start minting and updating
+												your NFTs
+											</Alert>
 										)}
 
-										<div className="flex gap-3 pt-4">
+										<div className="grid md:grid-cols-2 gap-5">
 											<button
-												className={`flex-1 ${
-													canProceed
-														? "btn-primary"
-														: "btn-primary opacity-50 cursor-not-allowed"
-												}`}
+												className={`
+													group px-8 py-6 rounded-2xl font-bold text-lg
+													transition-all duration-300
+													${
+														canProceed
+															? `
+																bg-gradient-to-r from-primary to-secondary
+																hover:from-primary-hover hover:to-secondary-hover
+																text-white
+																shadow-medium hover:shadow-strong
+																hover:scale-105
+															`
+															: "opacity-40 cursor-not-allowed bg-surface-hover-light dark:bg-surface-hover-dark text-text-tertiary-light dark:text-text-tertiary-dark"
+													}
+												`}
 												disabled={!canProceed}
 												onClick={() =>
 													navigate(
@@ -768,14 +757,27 @@ export default function Collections() {
 													)
 												}
 											>
-												Create New Artwork
+												<span className="flex items-center justify-center gap-2">
+													✨ Create New Artwork
+												</span>
 											</button>
 											<button
-												className={`flex-1 ${
-													canProceed
-														? "btn-secondary"
-														: "btn-secondary opacity-50 cursor-not-allowed"
-												}`}
+												className={`
+													px-8 py-6 rounded-2xl font-bold text-lg
+													border-2 transition-all duration-300
+													${
+														canProceed
+															? `
+																bg-surface-light hover:bg-surface-hover-light
+																dark:bg-surface-dark dark:hover:bg-surface-hover-dark
+																text-text-primary-light dark:text-text-primary-dark
+																border-border-light dark:border-border-dark
+																hover:border-primary dark:hover:border-primary-dark
+																hover:scale-105
+															`
+															: "opacity-40 cursor-not-allowed bg-surface-hover-light dark:bg-surface-hover-dark text-text-tertiary-light dark:text-text-tertiary-dark border-border-light dark:border-border-dark"
+													}
+												`}
 												disabled={!canProceed}
 												onClick={() =>
 													navigate(
@@ -795,73 +797,126 @@ export default function Collections() {
 
 				{/* Collector Interface - Normal Layout */}
 				{userRole === "collector" && (
-					<div className="px-4 md:px-8 py-8 max-w-6xl mx-auto space-y-6">
+					<div className="px-4 md:px-6 lg:px-8 py-8 md:py-12 max-w-6xl mx-auto space-y-10">
 						<>
-							<div className="flex items-center gap-4 mb-6">
+							{/* Header with back button */}
+							<div className="flex items-center justify-between">
 								<button
 									onClick={() => setUserRole(null)}
-									className="btn-ghost text-sm"
+									className={`
+										flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium
+										transition-all duration-200
+										${
+											isDarkMode
+												? "text-text-secondary-dark hover:text-text-primary-dark hover:bg-surface-hover-dark"
+												: "text-text-secondary-light hover:text-text-primary-light hover:bg-surface-hover-light"
+										}
+									`}
 								>
-									← Back to role selection
+									<ArrowLeft className="w-5 h-5" />
+									<span>Back</span>
 								</button>
 							</div>
 
 							<div>
-								<div className="flex items-center justify-between mb-6">
-									<div>
-										<h2
-											className={`text-lg md:text-xl font-bold ${
-												isDarkMode ? "text-zinc-100" : "text-zinc-900"
-											}`}
-										>
-											Collector Zone
-										</h2>
-										<p
-											className={`text-sm md:text-base ${
-												isDarkMode ? "text-zinc-300" : "text-zinc-600"
-											}`}
-										>
-											Enter a collection address to customize tokens you own
-										</p>
-									</div>
+								<div className="mb-8">
+									<h2
+										className={`
+											text-4xl md:text-5xl font-bold mb-3
+											${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
+										`}
+									>
+										❤️ Collector Zone
+									</h2>
+									<p
+										className={`
+											text-lg md:text-xl
+											${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
+										`}
+									>
+										Help preserve the art you love
+									</p>
 								</div>
 
 								{address ? (
 									<div className="space-y-6">
 										<div>
 											<h3
-												className={`text-lg md:text-xl font-bold ${
-													isDarkMode ? "text-zinc-100" : "text-zinc-900"
-												} mb-4`}
+												className={`
+													text-xl font-bold mb-2
+													${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
+												`}
 											>
 												Enter Collection Address
 											</h3>
+											<p
+												className={`
+													text-sm mb-4
+													${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
+												`}
+											>
+												Paste the Manifold Creator Core contract address for the collection
+											</p>
 											<div className="flex gap-3">
 												<input
-													className="input-field flex-1"
+													className={`
+														flex-1 px-4 py-3 rounded-md font-mono text-sm
+														border transition-all duration-200
+														${
+															isDarkMode
+																? "bg-surface-dark border-border-dark text-text-primary-dark placeholder:text-text-tertiary-dark focus:border-primary-dark"
+																: "bg-surface-light border-border-light text-text-primary-light placeholder:text-text-tertiary-light focus:border-primary"
+														}
+														focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent
+													`}
 													value={creatorInput}
 													onChange={(e) => setCreatorInput(e.target.value)}
-													placeholder="0x... collection address"
+													placeholder="0x..."
 												/>
 												<button
-													className="btn-primary"
+													className={`
+														px-6 py-3 rounded-lg font-semibold
+														bg-primary hover:bg-primary-hover
+														dark:bg-primary-dark dark:hover:bg-primary-dark-hover
+														text-white
+														shadow-soft hover:shadow-medium
+														transition-all duration-200
+														disabled:opacity-50 disabled:cursor-not-allowed
+													`}
 													onClick={checkCreator}
 													disabled={!creatorInput || checking}
 												>
-													{checking ? "Checking..." : "Check"}
+													{checking ? (
+														<span className="flex items-center gap-2">
+															<RefreshCw className="w-4 h-4 animate-spin" />
+															Checking...
+														</span>
+													) : (
+														"Check"
+													)}
 												</button>
 											</div>
 										</div>
 
 										{resolved && (
-											<div className="card animate-slide-up">
-												<div className="space-y-4">
-													<div className="flex items-center justify-between">
-														<div>
+											<div
+												className={`
+													p-8 md:p-10 rounded-3xl animate-slide-up border-2
+													${
+														isDarkMode
+															? "bg-surface-dark border-border-dark shadow-medium"
+															: "bg-surface-light border-border-light shadow-strong"
+													}
+												`}
+											>
+												<div className="space-y-8">
+													<div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
+														<div className="flex-1">
 															<h3
-																className={`text-lg font-semibold ${
-																	isDarkMode ? "text-zinc-100" : "text-zinc-900"
-																}`}
+																className={`
+																	text-3xl font-bold mb-3
+																	${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
+																`}
 															>
 																{resolved.name ||
 																	`${
@@ -873,35 +928,54 @@ export default function Collections() {
 																	} Collection`}
 															</h3>
 															<p
-																className={`text-sm ${
-																	isDarkMode ? "text-zinc-400" : "text-zinc-600"
-																} mt-1`}
+																className={`
+																	text-sm font-mono
+																	${isDarkMode ? "text-text-tertiary-dark" : "text-text-tertiary-light"}
+																`}
 															>
 																{resolved.address}
 															</p>
 														</div>
-														<div className="px-3 py-1 text-sm font-medium bg-success bg-opacity-20 text-success">
-															Ready for Collectors
-														</div>
+														<span
+															className={`
+																px-5 py-2.5 text-base font-bold rounded-full
+																bg-success-subtle dark:bg-success-dark-subtle
+																text-success dark:text-success-dark
+																border-2 border-success/30
+															`}
+														>
+															✓ Ready
+														</span>
 													</div>
 
-													<div className="pt-4">
+													<div>
 														<button
-															className="btn-primary w-full"
+															className={`
+																group w-full px-8 py-6 rounded-2xl font-bold text-lg
+																bg-gradient-to-r from-secondary to-primary
+																hover:from-secondary-hover hover:to-primary-hover
+																text-white
+																shadow-medium hover:shadow-strong
+																transition-all duration-300
+																hover:scale-105
+															`}
 															onClick={() =>
 																navigate(
 																	`/collector-zone?creator=${resolved.address}&type=${resolved.type}`
 																)
 															}
 														>
-															Enter Collector Zone
+															<span className="flex items-center justify-center gap-2">
+																❤️ Enter Collector Zone
+															</span>
 														</button>
 														<p
-															className={`text-sm ${
-																isDarkMode ? "text-zinc-400" : "text-zinc-600"
-															} mt-2 text-center`}
+															className={`
+																text-base mt-4 text-center
+																${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
+															`}
 														>
-															Update tokens you own based on artist permissions
+															Add backup links and help preserve this collection
 														</p>
 													</div>
 												</div>
@@ -910,20 +984,21 @@ export default function Collections() {
 									</div>
 								) : (
 									<div
-										className={`text-center py-8 rounded-lg space-y-4 ${
-											isDarkMode
-												? "bg-zinc-800"
-												: "bg-white border border-zinc-300"
-										}`}
+										className={`
+											rounded-lg p-8
+											${
+												isDarkMode
+													? "bg-surface-dark border border-border-dark"
+													: "bg-surface-light border border-border-light"
+											}
+										`}
 									>
-										<p
-											className={isDarkMode ? "text-zinc-400" : "text-zinc-600"}
-										>
-											Connect your wallet to get started
-										</p>
-										<div className="flex justify-center">
-											<ConnectButtonPrimary />
-										</div>
+										<EmptyState
+											icon={<Heart className="w-full h-full" />}
+											title="Connect Your Wallet"
+											description="Connect your wallet to discover and customize NFTs you own"
+											action={<ConnectButtonPrimary />}
+										/>
 									</div>
 								)}
 							</div>

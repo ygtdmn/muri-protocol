@@ -242,45 +242,84 @@ export default function CollectorZone() {
 
 	if (isSuccess) {
 		return (
-			<div className="max-w-2xl mx-auto text-center py-12 animate-fade-in">
-				<div className="inline-flex items-center justify-center w-16 h-16 bg-success bg-opacity-10 mb-4">
-					<svg
-						className="w-8 h-8 text-success"
-						fill="none"
-						stroke="currentColor"
-						viewBox="0 0 24 24"
+			<div
+				className={`
+					min-h-screen flex items-center justify-center
+					${isDarkMode ? "bg-bg-dark" : "bg-bg-light"}
+				`}
+			>
+				<div className="max-w-2xl mx-auto text-center p-8 animate-scale-in">
+					<div
+						className={`
+							inline-flex items-center justify-center w-20 h-20 rounded-full mb-6
+							${
+								isDarkMode
+									? "bg-success-dark-subtle"
+									: "bg-success-subtle"
+							}
+						`}
 					>
-						<path
-							strokeLinecap="round"
-							strokeLinejoin="round"
-							strokeWidth={2}
-							d="M5 13l4 4L19 7"
-						/>
-					</svg>
-				</div>
-				<h2
-					className={`text-2xl font-display font-bold ${
-						isDarkMode ? "text-zinc-100" : "text-zinc-900"
-					} mb-2`}
-				>
-					Token Updated!
-				</h2>
-				<p className={`${isDarkMode ? "text-zinc-400" : "text-zinc-600"} mb-8`}>
-					Token #{tokenId} has been successfully updated.
-				</p>
-				<div className="flex gap-3 justify-center">
-					<button
-						onClick={() => navigate("/collections")}
-						className="btn-secondary"
+						<svg
+							className={`w-10 h-10 ${isDarkMode ? "text-success-dark" : "text-success"}`}
+							fill="none"
+							stroke="currentColor"
+							viewBox="0 0 24 24"
+						>
+							<path
+								strokeLinecap="round"
+								strokeLinejoin="round"
+								strokeWidth={2}
+								d="M5 13l4 4L19 7"
+							/>
+						</svg>
+					</div>
+
+					<h2
+						className={`
+							text-3xl md:text-4xl font-bold mb-3
+							${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
+						`}
 					>
-						Back to Collections
-					</button>
-					<button
-						onClick={() => window.location.reload()}
-						className="btn-primary"
+						Token Updated! ✨
+					</h2>
+					<p
+						className={`
+							text-lg mb-8
+							${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
+						`}
 					>
-						Update Another
-					</button>
+						Token #{tokenId} has been successfully updated
+					</p>
+
+					<div className="flex flex-col sm:flex-row gap-3 justify-center">
+						<button
+							onClick={() => navigate("/collections")}
+							className={`
+								px-6 py-3 rounded-lg font-semibold
+								border transition-all duration-200
+								${
+									isDarkMode
+										? "bg-surface-dark hover:bg-surface-hover-dark text-text-primary-dark border-border-dark"
+										: "bg-surface-light hover:bg-surface-hover-light text-text-primary-light border-border-light"
+								}
+							`}
+						>
+							Back to Collections
+						</button>
+						<button
+							onClick={() => window.location.reload()}
+							className={`
+								px-6 py-3 rounded-lg font-semibold
+								bg-primary hover:bg-primary-hover
+								dark:bg-primary-dark dark:hover:bg-primary-dark-hover
+								text-white
+								shadow-soft hover:shadow-medium
+								transition-all duration-200
+							`}
+						>
+							Update Another
+						</button>
+					</div>
 				</div>
 			</div>
 		);
@@ -289,40 +328,60 @@ export default function CollectorZone() {
 	return (
 		<div
 			className={`scroll-smooth min-h-screen flex flex-col ${
-				isDarkMode ? "bg-zinc-950 text-zinc-100" : "bg-zinc-50 text-zinc-900"
+				isDarkMode ? "bg-bg-dark text-text-primary-dark" : "bg-bg-light text-text-primary-light"
 			}`}
 		>
 			<Header isDarkMode={isDarkMode} toggleTheme={toggleTheme} />
 
 			{/* Main Content */}
 			<div className="flex-grow">
-				<div className="px-4 md:px-8 py-8 max-w-6xl mx-auto space-y-6">
-					<div>
-						<h2
-							className={`text-lg md:text-xl font-bold ${
-								isDarkMode ? "text-zinc-100" : "text-zinc-900"
-							}`}
+				<div className="px-4 md:px-6 lg:px-8 py-8 max-w-4xl mx-auto space-y-8">
+					<div className="text-center md:text-left">
+						<h1
+							className={`
+								text-3xl md:text-4xl font-bold mb-3
+								${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
+							`}
 						>
 							Collector Zone
-						</h2>
+						</h1>
 						<p
-							className={`text-sm md:text-base ${
-								isDarkMode ? "text-zinc-300" : "text-zinc-600"
-							} mt-1`}
+							className={`
+								text-lg
+								${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
+							`}
 						>
-							Update tokens you own based on artist permissions
+							Customize and help preserve the NFTs you own
 						</p>
 					</div>
 
 					{/* Token Selection */}
-					<div className="card">
+					<div
+						className={`
+							p-6 rounded-xl
+							${
+								isDarkMode
+									? "bg-surface-dark border border-border-dark"
+									: "bg-surface-light border border-border-light shadow-soft"
+							}
+						`}
+					>
 						<h3
-							className={`text-lg font-semibold ${
-								isDarkMode ? "text-zinc-100" : "text-zinc-900"
-							} mb-4`}
+							className={`
+								text-xl font-bold mb-2
+								${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
+							`}
 						>
 							Select Your Token
 						</h3>
+						<p
+							className={`
+								text-sm mb-4
+								${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
+							`}
+						>
+							Enter the token ID you own and want to customize
+						</p>
 						<div className="space-y-4">
 							<div>
 								<label className="label">Collection Address</label>
@@ -444,14 +503,32 @@ export default function CollectorZone() {
 
 					{/* Display Mode */}
 					{tokenData && allowToggleDisplay ? (
-						<div className="card">
+						<div
+							className={`
+								p-6 rounded-xl
+								${
+									isDarkMode
+										? "bg-surface-dark border border-border-dark"
+										: "bg-surface-light border border-border-light shadow-soft"
+								}
+							`}
+						>
 							<h3
-								className={`text-lg font-semibold ${
-									isDarkMode ? "text-zinc-100" : "text-zinc-900"
-								} mb-4`}
+								className={`
+									text-xl font-bold mb-2
+									${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
+								`}
 							>
 								Display Mode
 							</h3>
+							<p
+								className={`
+									text-sm mb-4
+									${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
+								`}
+							>
+								Choose how your NFT is displayed
+							</p>
 							<div className="space-y-4">
 								<div>
 									<label className="label">Current Display Mode</label>
@@ -488,14 +565,32 @@ export default function CollectorZone() {
 					artistArtworkUris &&
 					Array.isArray(artistArtworkUris) &&
 					artistArtworkUris.length > 0 ? (
-						<div className="card">
+						<div
+							className={`
+								p-6 rounded-xl
+								${
+									isDarkMode
+										? "bg-surface-dark border border-border-dark"
+										: "bg-surface-light border border-border-light shadow-soft"
+								}
+							`}
+						>
 							<h3
-								className={`text-lg font-semibold ${
-									isDarkMode ? "text-zinc-100" : "text-zinc-900"
-								} mb-4`}
+								className={`
+									text-xl font-bold mb-2
+									${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
+								`}
 							>
 								Select Artwork
 							</h3>
+							<p
+								className={`
+									text-sm mb-4
+									${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
+								`}
+							>
+								Choose which backup link to display
+							</p>
 							<div className="space-y-4">
 								<div className="space-y-2">
 									<p

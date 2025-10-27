@@ -1,22 +1,22 @@
 import { Link } from "react-router-dom";
+import { Shield, Upload, Link2, Users, Zap, Heart, HelpCircle, Sparkles } from "lucide-react";
 import { useState } from "react";
 import Header from "../components/Header";
 import { useTheme } from "../hooks/useTheme";
 import Footer from "../components/Footer";
 
 export default function Home() {
-	const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-		overview: false,
+	const [openFaq, setOpenFaq] = useState<Record<string, boolean>>({
+		what: false,
 		why: false,
-		uris: false,
-		display: false,
-		thumbnails: false,
+		how: false,
+		who: false,
 	});
 
 	const { isDarkMode, toggleTheme } = useTheme();
 
-	const toggleSection = (section: string) => {
-		setOpenSections((prev) => ({
+	const toggleFaq = (section: string) => {
+		setOpenFaq((prev) => ({
 			...prev,
 			[section]: !prev[section],
 		}));
@@ -24,7 +24,7 @@ export default function Home() {
 	return (
 		<div
 			className={`scroll-smooth min-h-screen flex flex-col ${
-				isDarkMode ? "bg-zinc-950 text-zinc-100" : "bg-zinc-50 text-zinc-900"
+				isDarkMode ? "bg-bg-dark text-text-primary-dark" : "bg-bg-light text-text-primary-light"
 			}`}
 		>
 			<Header
@@ -33,543 +33,822 @@ export default function Home() {
 				hideConnectButton={true}
 			/>
 
-			{/* Centered Content Container */}
-			<div className="flex-grow flex items-center justify-center p-4">
-				<div className="flex flex-col items-center gap-8 max-w-6xl w-full">
-					{/* Header */}
-					<div className="px-4 md:px-8 py-12 md:py-16 text-center">
-						<div className="max-w-4xl mx-auto">
+			{/* Hero Section */}
+			<div className="flex-grow">
+				<div className="max-w-6xl mx-auto px-4 md:px-6 lg:px-8">
+					{/* Hero */}
+					<div className="pt-16 pb-12 md:pt-24 md:pb-16 text-center relative">
+						{/* Decorative gradient blob */}
+						<div className={`absolute inset-0 overflow-hidden pointer-events-none ${isDarkMode ? "opacity-20" : "opacity-10"}`}>
+							<div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-primary to-secondary rounded-full blur-3xl transform translate-x-1/2 -translate-y-1/2" />
+							<div className="absolute bottom-0 left-0 w-96 h-96 bg-gradient-to-tr from-secondary to-primary rounded-full blur-3xl transform -translate-x-1/2 translate-y-1/2" />
+						</div>
+
+						<div className="max-w-4xl mx-auto relative z-10">
 							<h1
-								className={`text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight mb-4 md:mb-6 ${
-									isDarkMode ? "text-zinc-100" : "text-zinc-900"
-								}`}
+								className={`
+									text-4xl md:text-5xl lg:text-6xl 
+									font-bold tracking-tight 
+									mb-6 leading-tight
+									${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
+								`}
 							>
-								Wayfinder
+								Keep Your Digital Art{" "}
+								<span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+									Alive Forever
+								</span>
 							</h1>
 
 							<p
-								className={`text-sm md:text-base lg:text-lg font-medium mb-6 md:mb-8 ${
-									isDarkMode ? "text-zinc-300" : "text-zinc-600"
-								}`}
+								className={`
+									text-lg md:text-xl 
+									mb-10 leading-relaxed max-w-2xl mx-auto
+									${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
+								`}
 							>
-								Mint sturdier NFTs with on-chain multi-URI media storage system
+								Store your NFTs across multiple platforms. If one fails, your art
+								automatically falls back to another. <strong>Simple, secure, forever.</strong>
 							</p>
 
-							<Link
-								to="/collections"
-								className={`inline-block text-xs md:text-sm font-medium border px-4 md:px-6 py-2 md:py-3 transition-all uppercase tracking-wide ${
-									isDarkMode
-										? "text-zinc-950 bg-zinc-100 border-zinc-100 hover:bg-white"
-										: "text-zinc-50 bg-zinc-900 border-zinc-900 hover:bg-black"
-								}`}
-							>
-								Launch App
-							</Link>
+							<div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+								<Link
+									to="/collections"
+									className="group px-10 py-5 rounded-2xl text-lg font-bold bg-gradient-to-r from-primary to-secondary hover:from-primary-hover hover:to-secondary-hover text-white shadow-strong hover:shadow-[0_12px_48px_rgba(59,130,246,0.5)] transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-4 focus:ring-primary/30"
+								>
+									<span className="flex items-center gap-2">
+										Get Started
+										<Sparkles className="w-5 h-5 group-hover:rotate-12 transition-transform" />
+									</span>
+								</Link>
+								
+								<a
+									href="#how-it-works"
+									className={`
+										px-8 py-4 rounded-xl text-base font-semibold
+										border-2
+										transition-all duration-200
+										${
+											isDarkMode
+												? "border-border-dark text-text-primary-dark hover:bg-surface-hover-dark"
+												: "border-border-light text-text-primary-light hover:bg-surface-hover-light"
+										}
+									`}
+								>
+									Learn How It Works →
+								</a>
+							</div>
+
+							{/* Quick Stats */}
+							<div className={`mt-16 pt-8 border-t ${isDarkMode ? "border-border-dark" : "border-border-light"}`}>
+								<p className={`text-sm font-semibold mb-4 ${isDarkMode ? "text-text-tertiary-dark" : "text-text-tertiary-light"}`}>
+									Trusted by artists who care about longevity
+								</p>
+								<div className="flex justify-center gap-8 md:gap-16">
+									<div>
+										<p className={`text-3xl font-bold ${isDarkMode ? "text-primary-dark" : "text-primary"}`}>
+											Forever
+										</p>
+										<p className={`text-sm ${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}`}>
+											Your art, protected
+										</p>
+									</div>
+									<div>
+										<p className={`text-3xl font-bold ${isDarkMode ? "text-secondary-dark" : "text-secondary"}`}>
+											Multiple
+										</p>
+										<p className={`text-sm ${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}`}>
+											Backup locations
+										</p>
+									</div>
+									<div>
+										<p className={`text-3xl font-bold ${isDarkMode ? "text-success-dark" : "text-success"}`}>
+											Auto
+										</p>
+										<p className={`text-sm ${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}`}>
+											Failover protection
+										</p>
+									</div>
+								</div>
+							</div>
 						</div>
 					</div>
 
-					{/* Main Content */}
-					<div className="px-4 md:px-8 pb-16 max-w-6xl w-full space-y-6">
-						{/* What is Wayfinder */}
-						<section id="overview" className="scroll-mt-24">
-							<button
-								onClick={() => toggleSection("overview")}
-								className={`w-full text-left flex items-center justify-between py-3 border-b transition-colors ${
-									isDarkMode
-										? "border-zinc-800 hover:border-zinc-600"
-										: "border-zinc-300 hover:border-zinc-400"
-								}`}
+					{/* How It Works */}
+					<section id="how-it-works" className="py-16 scroll-mt-24">
+						<div className="text-center mb-12">
+							<h2
+								className={`
+									text-3xl md:text-4xl font-bold mb-4
+									${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
+								`}
 							>
-								<h2
-									className={`text-lg md:text-xl font-bold ${
-										isDarkMode ? "text-zinc-100" : "text-zinc-900"
-									}`}
-								>
-									What is Wayfinder?
-								</h2>
-								<span
-									className={`text-base md:text-lg ${
-										isDarkMode ? "text-zinc-400" : "text-zinc-600"
-									}`}
-								>
-									{openSections.overview ? "−" : "+"}
-								</span>
-							</button>
-							{openSections.overview && (
-								<div className="py-4 space-y-4">
-									<p
-										className={`text-sm md:text-base ${
-											isDarkMode ? "text-zinc-300" : "text-zinc-600"
-										}`}
-									>
-										Wayfinder is a new way of storing media pointers on-chain.
-										Store your art in multiple places instead of one to ensure
-										durability. Wayfinder helps you accomplish this.
-									</p>
-									<div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-										<div
-											className={`p-4 space-y-2 border ${
-												isDarkMode
-													? "bg-zinc-900 border-zinc-800"
-													: "bg-white border-zinc-300"
-											}`}
-										>
-											<h3
-												className={`text-sm md:text-base font-medium ${
-													isDarkMode ? "text-zinc-200" : "text-zinc-900"
-												}`}
-											>
-												On-Chain Metadata
-											</h3>
-											<p
-												className={`text-xs md:text-sm ${
-													isDarkMode ? "text-zinc-400" : "text-zinc-600"
-												}`}
-											>
-												Store your NFT metadata directly on-chain for maximum
-												reliability and permanence.
-											</p>
-										</div>
-										<div
-											className={`p-4 space-y-2 border ${
-												isDarkMode
-													? "bg-zinc-900 border-zinc-800"
-													: "bg-white border-zinc-300"
-											}`}
-										>
-											<h3
-												className={`text-sm md:text-base font-medium ${
-													isDarkMode ? "text-zinc-200" : "text-zinc-900"
-												}`}
-											>
-												Multi-URI Storage
-											</h3>
-											<p
-												className={`text-xs md:text-sm ${
-													isDarkMode ? "text-zinc-400" : "text-zinc-600"
-												}`}
-											>
-												Off-chain metadata and artwork with multiple backup
-												pointers across different storage platforms.
-											</p>
-										</div>
-										<div
-											className={`p-4 space-y-2 border ${
-												isDarkMode
-													? "bg-zinc-900 border-zinc-800"
-													: "bg-white border-zinc-300"
-											}`}
-										>
-											<h3
-												className={`text-sm md:text-base font-medium ${
-													isDarkMode ? "text-zinc-200" : "text-zinc-900"
-												}`}
-											>
-												Collector Participation
-											</h3>
-											<p
-												className={`text-xs md:text-sm ${
-													isDarkMode ? "text-zinc-400" : "text-zinc-600"
-												}`}
-											>
-												Allow collectors to add new pointers to give your art
-												more chances to stay alive forever.
-											</p>
-										</div>
-										<div
-											className={`p-4 space-y-2 border ${
-												isDarkMode
-													? "bg-zinc-900 border-zinc-800"
-													: "bg-white border-zinc-300"
-											}`}
-										>
-											<h3
-												className={`text-sm md:text-base font-medium ${
-													isDarkMode ? "text-zinc-200" : "text-zinc-900"
-												}`}
-											>
-												Smart HTML Interface
-											</h3>
-											<p
-												className={`text-xs md:text-sm ${
-													isDarkMode ? "text-zinc-400" : "text-zinc-600"
-												}`}
-											>
-												Automatically resolve the first available pointer to
-												ensure seamless backup functionality.
-											</p>
-										</div>
-										<div
-											className={`p-4 space-y-2 border ${
-												isDarkMode
-													? "bg-zinc-900 border-zinc-800"
-													: "bg-white border-zinc-300"
-											}`}
-										>
-											<h3
-												className={`text-sm md:text-base font-medium ${
-													isDarkMode ? "text-zinc-200" : "text-zinc-900"
-												}`}
-											>
-												Extended Customizability
-											</h3>
-											<p
-												className={`text-xs md:text-sm ${
-													isDarkMode ? "text-zinc-400" : "text-zinc-600"
-												}`}
-											>
-												Flexible configuration options for metadata, display
-												modes, and URI management.
-											</p>
-										</div>
-										<div
-											className={`p-4 space-y-2 border ${
-												isDarkMode
-													? "bg-zinc-900 border-zinc-800"
-													: "bg-white border-zinc-300"
-											}`}
-										>
-											<h3
-												className={`text-sm md:text-base font-medium ${
-													isDarkMode ? "text-zinc-200" : "text-zinc-900"
-												}`}
-											>
-												Easy User Experience
-											</h3>
-											<p
-												className={`text-xs md:text-sm ${
-													isDarkMode ? "text-zinc-400" : "text-zinc-600"
-												}`}
-											>
-												Intuitive interface designed for both artists and
-												collectors to manage their NFTs effortlessly.
-											</p>
-										</div>
-									</div>
-								</div>
-							)}
-						</section>
-						{/* Why Wayfinder Matters */}
-						<section id="why" className="scroll-mt-24">
-							<button
-								onClick={() => toggleSection("why")}
-								className={`w-full text-left flex items-center justify-between py-3 border-b transition-colors ${
-									isDarkMode
-										? "border-zinc-800 hover:border-zinc-600"
-										: "border-zinc-300 hover:border-zinc-400"
-								}`}
+								How It Works
+							</h2>
+							<p
+								className={`
+									text-lg max-w-2xl mx-auto
+									${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
+								`}
 							>
-								<h2
-									className={`text-lg md:text-xl font-bold ${
-										isDarkMode ? "text-zinc-100" : "text-zinc-900"
-									}`}
-								>
-									Why Wayfinder Matters
-								</h2>
-								<span
-									className={`text-base md:text-lg ${
-										isDarkMode ? "text-zinc-400" : "text-zinc-600"
-									}`}
-								>
-									{openSections.why ? "−" : "+"}
-								</span>
-							</button>
-							{openSections.why && (
-								<div className="py-4 space-y-4">
-									<p
-										className={`text-sm md:text-base ${
-											isDarkMode ? "text-zinc-300" : "text-zinc-600"
-										}`}
-									>
-										Visual NFT artworks often rely on external links. If a
-										gateway, server, or API changes, the piece can break.
-										Wayfinder stores the essential metadata and the artwork's
-										content hash on-chain, while distributing the media itself
-										across multiple networks. This way, the work's chance to
-										remain verifiable and accessible increases.
-									</p>
-								</div>
-							)}
-						</section>
+								Three simple steps to protect your digital art
+							</p>
+						</div>
 
-						{/* Problem section condensed into Overview */}
-
-						{/* How It Works */}
-						<section id="how-uris" className="scroll-mt-24">
-							<button
-								onClick={() => toggleSection("uris")}
-								className={`w-full text-left flex items-center justify-between py-3 border-b transition-colors ${
-									isDarkMode
-										? "border-zinc-800 hover:border-zinc-600"
-										: "border-zinc-300 hover:border-zinc-400"
-								}`}
+						<div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+							{/* Step 1 */}
+							<div
+								className={`
+									text-center p-8 rounded-xl
+									${
+										isDarkMode
+											? "bg-surface-dark border border-border-dark"
+											: "bg-surface-light border border-border-light shadow-soft"
+									}
+								`}
 							>
-								<h2
-									className={`text-lg md:text-xl font-bold ${
-										isDarkMode ? "text-zinc-100" : "text-zinc-900"
-									}`}
+								<div
+									className={`
+										w-16 h-16 mx-auto mb-6 rounded-xl
+										flex items-center justify-center
+										${
+											isDarkMode
+												? "bg-primary-dark-subtle"
+												: "bg-primary-subtle"
+										}
+									`}
 								>
-									How It Works
-								</h2>
-								<span
-									className={`text-base md:text-lg ${
-										isDarkMode ? "text-zinc-400" : "text-zinc-600"
-									}`}
+									<Upload
+										className={`w-8 h-8 ${isDarkMode ? "text-primary-dark" : "text-primary"}`}
+									/>
+								</div>
+								<div className="mb-3 inline-block px-3 py-1 rounded-full bg-primary/10 dark:bg-primary-dark/10 text-primary dark:text-primary-dark text-sm font-semibold">
+									Step 1
+								</div>
+								<h3
+									className={`
+										text-xl font-semibold mb-3
+										${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
+									`}
 								>
-									{openSections.uris ? "−" : "+"}
-								</span>
-							</button>
-							{openSections.uris && (
-								<div className="py-4 space-y-4">
+									Upload Your Art
+								</h3>
+								<p
+									className={`
+										text-sm leading-relaxed
+										${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
+									`}
+								>
+									Upload your artwork and we'll calculate a secure hash to verify
+									authenticity
+								</p>
+							</div>
+
+							{/* Step 2 */}
+							<div
+								className={`
+									text-center p-8 rounded-xl
+									${
+										isDarkMode
+											? "bg-surface-dark border border-border-dark"
+											: "bg-surface-light border border-border-light shadow-soft"
+									}
+								`}
+							>
+								<div
+									className={`
+										w-16 h-16 mx-auto mb-6 rounded-xl
+										flex items-center justify-center
+										${
+											isDarkMode
+												? "bg-secondary-dark-subtle"
+												: "bg-secondary-subtle"
+										}
+									`}
+								>
+									<Link2
+										className={`w-8 h-8 ${isDarkMode ? "text-secondary-dark" : "text-secondary"}`}
+									/>
+								</div>
+								<div className="mb-3 inline-block px-3 py-1 rounded-full bg-secondary/10 dark:bg-secondary-dark/10 text-secondary dark:text-secondary-dark text-sm font-semibold">
+									Step 2
+								</div>
+								<h3
+									className={`
+										text-xl font-semibold mb-3
+										${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
+									`}
+								>
+									Add Backup Links
+								</h3>
+								<p
+									className={`
+										text-sm leading-relaxed
+										${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
+									`}
+								>
+									Upload to IPFS, Arweave, or any storage. More backups mean more
+									resilience
+								</p>
+							</div>
+
+							{/* Step 3 */}
+							<div
+								className={`
+									text-center p-8 rounded-xl
+									${
+										isDarkMode
+											? "bg-surface-dark border border-border-dark"
+											: "bg-surface-light border border-border-light shadow-soft"
+									}
+								`}
+							>
+								<div
+									className={`
+										w-16 h-16 mx-auto mb-6 rounded-xl
+										flex items-center justify-center
+										${
+											isDarkMode
+												? "bg-success-dark-subtle"
+												: "bg-success-subtle"
+										}
+									`}
+								>
+									<Shield
+										className={`w-8 h-8 ${isDarkMode ? "text-success-dark" : "text-success"}`}
+									/>
+								</div>
+								<div className="mb-3 inline-block px-3 py-1 rounded-full bg-success/10 dark:bg-success-dark/10 text-success dark:text-success-dark text-sm font-semibold">
+									Step 3
+								</div>
+								<h3
+									className={`
+										text-xl font-semibold mb-3
+										${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
+									`}
+								>
+									Mint with Confidence
+								</h3>
+								<p
+									className={`
+										text-sm leading-relaxed
+										${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
+									`}
+								>
+									Your NFT automatically uses the first working link. No manual
+									intervention needed
+								</p>
+							</div>
+						</div>
+					</section>
+
+					{/* Features Grid */}
+					<section className="py-16">
+						<div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+							<div
+								className={`
+									p-6 rounded-xl
+									${
+										isDarkMode
+											? "bg-surface-dark border border-border-dark"
+											: "bg-surface-light border border-border-light shadow-soft"
+									}
+								`}
+							>
+								<div className="flex items-start gap-4">
 									<div
-										className={`text-sm md:text-base space-y-4 ${
-											isDarkMode ? "text-zinc-300" : "text-zinc-600"
-										}`}
+										className={`
+											p-2 rounded-lg
+											${isDarkMode ? "bg-primary-dark-subtle" : "bg-primary-subtle"}
+										`}
 									>
-										<p>
-											Each token stores an array of URIs pointing to the same
-											artwork hosted on different platforms (IPFS, Arweave,
-											centralized servers, etc.).
+										<Shield className={`w-5 h-5 ${isDarkMode ? "text-primary-dark" : "text-primary"}`} />
+									</div>
+									<div>
+										<h3
+											className={`
+												font-semibold mb-2
+												${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
+											`}
+										>
+											On-Chain Metadata
+										</h3>
+										<p
+											className={`
+												text-sm leading-relaxed
+												${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
+											`}
+										>
+											Your NFT details stored directly on the blockchain, not on a
+											server that could go down
 										</p>
-										<div className="grid md:grid-cols-3 gap-4">
-											<div
-												className={`p-4 border space-y-2 ${
-													isDarkMode
-														? "bg-zinc-900 border-zinc-800"
-														: "bg-zinc-50 border-zinc-300"
-												}`}
-											>
-												<h3
-													className={`text-sm md:text-base font-medium ${
-														isDarkMode ? "text-zinc-200" : "text-zinc-900"
-													}`}
-												>
-													Artists
-												</h3>
-												<ul
-													className={`space-y-1 text-xs md:text-sm ${
-														isDarkMode ? "text-zinc-300" : "text-zinc-600"
-													}`}
-												>
-													<li>• Add initial URIs</li>
-													<li>• Choose which URI displays</li>
-												</ul>
-											</div>
-											<div
-												className={`p-4 border space-y-2 ${
-													isDarkMode
-														? "bg-zinc-900 border-zinc-800"
-														: "bg-zinc-50 border-zinc-300"
-												}`}
-											>
-												<h3
-													className={`text-sm md:text-base font-medium ${
-														isDarkMode ? "text-zinc-200" : "text-zinc-900"
-													}`}
-												>
-													Collectors
-												</h3>
-												<ul
-													className={`space-y-1 text-xs md:text-sm ${
-														isDarkMode ? "text-zinc-300" : "text-zinc-600"
-													}`}
-												>
-													<li>• Contribute backup links (if permitted)</li>
-												</ul>
-											</div>
-											<div
-												className={`p-4 border space-y-2 ${
-													isDarkMode
-														? "bg-zinc-900 border-zinc-800"
-														: "bg-zinc-50 border-zinc-300"
-												}`}
-											>
-												<h3
-													className={`text-sm md:text-base font-medium ${
-														isDarkMode ? "text-zinc-200" : "text-zinc-900"
-													}`}
-												>
-													System
-												</h3>
-												<ul
-													className={`space-y-1 text-xs md:text-sm ${
-														isDarkMode ? "text-zinc-300" : "text-zinc-600"
-													}`}
-												>
-													<li>• Auto-resolves first working URL (HTML mode)</li>
-													<li>• Priority: artist URIs then collector URIs</li>
-													<li>• Fallback if a link fails</li>
-												</ul>
-											</div>
-										</div>
 									</div>
 								</div>
-							)}
-						</section>
+							</div>
 
-						{/* Display Modes */}
-						<section id="display" className="scroll-mt-24">
-							<button
-								onClick={() => toggleSection("display")}
-								className={`w-full text-left flex items-center justify-between py-3 border-b transition-colors ${
-									isDarkMode
-										? "border-zinc-800 hover:border-zinc-600"
-										: "border-zinc-300 hover:border-zinc-400"
-								}`}
+							<div
+								className={`
+									p-6 rounded-xl
+									${
+										isDarkMode
+											? "bg-surface-dark border border-border-dark"
+											: "bg-surface-light border border-border-light shadow-soft"
+									}
+								`}
 							>
-								<h2
-									className={`text-lg md:text-xl font-bold ${
-										isDarkMode ? "text-zinc-100" : "text-zinc-900"
-									}`}
-								>
-									Display Modes
-								</h2>
-								<span
-									className={`text-base md:text-lg ${
-										isDarkMode ? "text-zinc-400" : "text-zinc-600"
-									}`}
-								>
-									{openSections.display ? "−" : "+"}
-								</span>
-							</button>
-							{openSections.display && (
-								<div className="py-4 space-y-4">
-									<div className="grid md:grid-cols-2 gap-4">
-										<div
-											className={`p-4 space-y-2 border ${
-												isDarkMode
-													? "bg-zinc-900 border-zinc-800"
-													: "bg-white border-zinc-300"
-											}`}
+								<div className="flex items-start gap-4">
+									<div
+										className={`
+											p-2 rounded-lg
+											${isDarkMode ? "bg-secondary-dark-subtle" : "bg-secondary-subtle"}
+										`}
+									>
+										<Link2 className={`w-5 h-5 ${isDarkMode ? "text-secondary-dark" : "text-secondary"}`} />
+									</div>
+									<div>
+										<h3
+											className={`
+												font-semibold mb-2
+												${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
+											`}
 										>
-											<h3
-												className={`text-sm md:text-base font-medium ${
-													isDarkMode ? "text-zinc-200" : "text-zinc-900"
-												}`}
-											>
-												Direct File
-											</h3>
-											<p
-												className={`text-xs md:text-sm ${
-													isDarkMode ? "text-zinc-400" : "text-zinc-600"
-												}`}
-											>
-												Uses a selected artwork URI directly as the NFT's media.
-												If the selected URI fails, artists or collectors must
-												manually switch to an alternative URI. This mode has
-												broader platform compatibility.
-											</p>
-										</div>
-										<div
-											className={`p-4 space-y-2 border ${
-												isDarkMode
-													? "bg-zinc-900 border-zinc-800"
-													: "bg-white border-zinc-300"
-											}`}
+											Multiple Backups
+										</h3>
+										<p
+											className={`
+												text-sm leading-relaxed
+												${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
+											`}
 										>
-											<h3
-												className={`text-sm md:text-base font-medium ${
-													isDarkMode ? "text-zinc-200" : "text-zinc-900"
-												}`}
-											>
-												HTML
-											</h3>
-											<p
-												className={`text-xs md:text-sm ${
-													isDarkMode ? "text-zinc-400" : "text-zinc-600"
-												}`}
-											>
-												Embeds an HTML template that automatically resolves the
-												first available URI from all stored options
-												(prioritizing artist URIs, then collector URIs).
-												Provides maximum resilience but has limited wallet and
-												platform support.
-											</p>
-										</div>
+											Store the same artwork in multiple places - IPFS, Arweave,
+											servers, anywhere
+										</p>
 									</div>
 								</div>
-							)}
-						</section>
+							</div>
 
-						{/* Thumbnails */}
-						<section id="thumbnails" className="scroll-mt-24">
-							<button
-								onClick={() => toggleSection("thumbnails")}
-								className={`w-full text-left flex items-center justify-between py-3 border-b transition-colors ${
-									isDarkMode
-										? "border-zinc-800 hover:border-zinc-600"
-										: "border-zinc-300 hover:border-zinc-400"
-								}`}
+							<div
+								className={`
+									p-6 rounded-xl
+									${
+										isDarkMode
+											? "bg-surface-dark border border-border-dark"
+											: "bg-surface-light border border-border-light shadow-soft"
+									}
+								`}
 							>
-								<h2
-									className={`text-lg md:text-xl font-bold ${
-										isDarkMode ? "text-zinc-100" : "text-zinc-900"
-									}`}
-								>
-									Thumbnails
-								</h2>
-								<span
-									className={`text-base md:text-lg ${
-										isDarkMode ? "text-zinc-400" : "text-zinc-600"
-									}`}
-								>
-									{openSections.thumbnails ? "−" : "+"}
-								</span>
-							</button>
-							{openSections.thumbnails && (
-								<div className="py-4 space-y-4">
-									<div className="grid md:grid-cols-2 gap-4">
-										<div
-											className={`p-4 space-y-2 border ${
-												isDarkMode
-													? "bg-zinc-900 border-zinc-800"
-													: "bg-white border-zinc-300"
-											}`}
+								<div className="flex items-start gap-4">
+									<div
+										className={`
+											p-2 rounded-lg
+											${isDarkMode ? "bg-success-dark-subtle" : "bg-success-subtle"}
+										`}
+									>
+										<Users className={`w-5 h-5 ${isDarkMode ? "text-success-dark" : "text-success"}`} />
+									</div>
+									<div>
+										<h3
+											className={`
+												font-semibold mb-2
+												${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
+											`}
 										>
-											<h3
-												className={`text-sm md:text-base font-medium ${
-													isDarkMode ? "text-zinc-200" : "text-zinc-900"
-												}`}
-											>
-												On-chain
-											</h3>
-											<p
-												className={`text-xs md:text-sm ${
-													isDarkMode ? "text-zinc-400" : "text-zinc-600"
-												}`}
-											>
-												Store thumbnail image on-chain for even stronger
-												durability.
-											</p>
-										</div>
-										<div
-											className={`p-4 space-y-2 border ${
-												isDarkMode
-													? "bg-zinc-900 border-zinc-800"
-													: "bg-white border-zinc-300"
-											}`}
+											Collector Power
+										</h3>
+										<p
+											className={`
+												text-sm leading-relaxed
+												${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
+											`}
 										>
-											<h3
-												className={`text-sm md:text-base font-medium ${
-													isDarkMode ? "text-zinc-200" : "text-zinc-900"
-												}`}
-											>
-												Off-chain
-											</h3>
-											<p
-												className={`text-xs md:text-sm ${
-													isDarkMode ? "text-zinc-400" : "text-zinc-600"
-												}`}
-											>
-												Reference multiple thumbnail URIs and select which one
-												to display.
-											</p>
-										</div>
+											Let collectors add backup links too. More eyes helping
+											preserve your art
+										</p>
 									</div>
 								</div>
-							)}
-						</section>
-					</div>
+							</div>
+
+							<div
+								className={`
+									p-6 rounded-xl
+									${
+										isDarkMode
+											? "bg-surface-dark border border-border-dark"
+											: "bg-surface-light border border-border-light shadow-soft"
+									}
+								`}
+							>
+								<div className="flex items-start gap-4">
+									<div
+										className={`
+											p-2 rounded-lg
+											${isDarkMode ? "bg-info-dark-subtle" : "bg-info-subtle"}
+										`}
+									>
+										<Zap className={`w-5 h-5 ${isDarkMode ? "text-info-dark" : "text-info"}`} />
+									</div>
+									<div>
+										<h3
+											className={`
+												font-semibold mb-2
+												${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
+											`}
+										>
+											Auto-Failover
+										</h3>
+										<p
+											className={`
+												text-sm leading-relaxed
+												${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
+											`}
+										>
+											In HTML mode, your NFT tries each link until one works. No
+											manual switching needed
+										</p>
+									</div>
+								</div>
+							</div>
+
+							<div
+								className={`
+									p-6 rounded-xl
+									${
+										isDarkMode
+											? "bg-surface-dark border border-border-dark"
+											: "bg-surface-light border border-border-light shadow-soft"
+									}
+								`}
+							>
+								<div className="flex items-start gap-4">
+									<div
+										className={`
+											p-2 rounded-lg
+											${isDarkMode ? "bg-warning-dark-subtle" : "bg-warning-subtle"}
+										`}
+									>
+										<HelpCircle className={`w-5 h-5 ${isDarkMode ? "text-warning-dark" : "text-warning"}`} />
+									</div>
+									<div>
+										<h3
+											className={`
+												font-semibold mb-2
+												${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
+											`}
+										>
+											Flexible Control
+										</h3>
+										<p
+											className={`
+												text-sm leading-relaxed
+												${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
+											`}
+										>
+											Choose exactly what permissions artists and collectors have.
+											You're in control
+										</p>
+									</div>
+								</div>
+							</div>
+
+							<div
+								className={`
+									p-6 rounded-xl
+									${
+										isDarkMode
+											? "bg-surface-dark border border-border-dark"
+											: "bg-surface-light border border-border-light shadow-soft"
+									}
+								`}
+							>
+								<div className="flex items-start gap-4">
+									<div
+										className={`
+											p-2 rounded-lg
+											${isDarkMode ? "bg-danger-dark-subtle" : "bg-danger-subtle"}
+										`}
+									>
+										<Heart className={`w-5 h-5 ${isDarkMode ? "text-danger-dark" : "text-danger"}`} />
+									</div>
+									<div>
+										<h3
+											className={`
+												font-semibold mb-2
+												${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
+											`}
+										>
+											Built for Artists
+										</h3>
+										<p
+											className={`
+												text-sm leading-relaxed
+												${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
+											`}
+										>
+											Created by an artist who cares about digital art preservation
+											and longevity
+										</p>
+									</div>
+								</div>
+							</div>
+						</div>
+					</section>
+					{/* FAQ Section */}
+					<section className="py-16">
+						<div className="text-center mb-12">
+							<h2
+								className={`
+									text-3xl md:text-4xl font-bold mb-4
+									${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
+								`}
+							>
+								Common Questions
+							</h2>
+						</div>
+
+						<div className="max-w-3xl mx-auto space-y-4">
+							{/* FAQ Item 1 */}
+							<div
+								className={`
+									rounded-lg border overflow-hidden
+									${
+										isDarkMode
+											? "bg-surface-dark border-border-dark"
+											: "bg-surface-light border-border-light"
+									}
+								`}
+							>
+								<button
+									onClick={() => toggleFaq("what")}
+									className={`
+										w-full px-6 py-4 flex items-center justify-between
+										transition-colors
+										${
+											isDarkMode
+												? "hover:bg-surface-hover-dark"
+												: "hover:bg-surface-hover-light"
+										}
+									`}
+								>
+									<h3
+										className={`
+											text-lg font-semibold text-left
+											${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
+										`}
+									>
+										What problem does Wayfinder solve?
+									</h3>
+									<span
+										className={`
+											text-2xl
+											${isDarkMode ? "text-text-tertiary-dark" : "text-text-tertiary-light"}
+										`}
+									>
+										{openFaq.what ? "−" : "+"}
+									</span>
+								</button>
+								{openFaq.what && (
+									<div
+										className={`
+											px-6 pb-4 pt-2
+											${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
+										`}
+									>
+										<p className="leading-relaxed">
+											Most NFTs rely on a single link to display the artwork. If that
+											link breaks (server goes down, IPFS gateway fails, etc.), the
+											NFT becomes a broken image. Wayfinder stores multiple backup
+											links and automatically tries each one until it finds a working
+											version. Your art stays visible, no matter what.
+										</p>
+									</div>
+								)}
+							</div>
+
+							{/* FAQ Item 2 */}
+							<div
+								className={`
+									rounded-lg border overflow-hidden
+									${
+										isDarkMode
+											? "bg-surface-dark border-border-dark"
+											: "bg-surface-light border-border-light"
+									}
+								`}
+							>
+								<button
+									onClick={() => toggleFaq("why")}
+									className={`
+										w-full px-6 py-4 flex items-center justify-between
+										transition-colors
+										${
+											isDarkMode
+												? "hover:bg-surface-hover-dark"
+												: "hover:bg-surface-hover-light"
+										}
+									`}
+								>
+									<h3
+										className={`
+											text-lg font-semibold text-left
+											${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
+										`}
+									>
+										How does it work technically?
+									</h3>
+									<span
+										className={`
+											text-2xl
+											${isDarkMode ? "text-text-tertiary-dark" : "text-text-tertiary-light"}
+										`}
+									>
+										{openFaq.why ? "−" : "+"}
+									</span>
+								</button>
+								{openFaq.why && (
+									<div
+										className={`
+											px-6 pb-4 pt-2
+											${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
+										`}
+									>
+										<p className="leading-relaxed">
+											Wayfinder stores your NFT metadata and a hash of your artwork
+											on-chain. You provide multiple URLs where your artwork lives
+											(IPFS, Arweave, etc.). In "HTML mode," we embed a smart
+											template that tries each URL in order until one loads. In
+											"Direct mode," you pick which URL to show, and can switch
+											manually if needed.
+										</p>
+									</div>
+								)}
+							</div>
+
+							{/* FAQ Item 3 */}
+							<div
+								className={`
+									rounded-lg border overflow-hidden
+									${
+										isDarkMode
+											? "bg-surface-dark border-border-dark"
+											: "bg-surface-light border-border-light"
+									}
+								`}
+							>
+								<button
+									onClick={() => toggleFaq("how")}
+									className={`
+										w-full px-6 py-4 flex items-center justify-between
+										transition-colors
+										${
+											isDarkMode
+												? "hover:bg-surface-hover-dark"
+												: "hover:bg-surface-hover-light"
+										}
+									`}
+								>
+									<h3
+										className={`
+											text-lg font-semibold text-left
+											${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
+										`}
+									>
+										Can collectors really help preserve my art?
+									</h3>
+									<span
+										className={`
+											text-2xl
+											${isDarkMode ? "text-text-tertiary-dark" : "text-text-tertiary-light"}
+										`}
+									>
+										{openFaq.how ? "−" : "+"}
+									</span>
+								</button>
+								{openFaq.how && (
+									<div
+										className={`
+											px-6 pb-4 pt-2
+											${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
+										`}
+									>
+										<p className="leading-relaxed">
+											Yes! If you grant permission, collectors can add their own
+											backup URLs for artwork they own. This creates a community
+											preservation effort - if your original links fail, collector
+											backups can keep the art alive. You decide what collectors can
+											and can't do.
+										</p>
+									</div>
+								)}
+							</div>
+
+							{/* FAQ Item 4 */}
+							<div
+								className={`
+									rounded-lg border overflow-hidden
+									${
+										isDarkMode
+											? "bg-surface-dark border-border-dark"
+											: "bg-surface-light border-border-light"
+									}
+								`}
+							>
+								<button
+									onClick={() => toggleFaq("who")}
+									className={`
+										w-full px-6 py-4 flex items-center justify-between
+										transition-colors
+										${
+											isDarkMode
+												? "hover:bg-surface-hover-dark"
+												: "hover:bg-surface-hover-light"
+										}
+									`}
+								>
+									<h3
+										className={`
+											text-lg font-semibold text-left
+											${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
+										`}
+									>
+										Who should use Wayfinder?
+									</h3>
+									<span
+										className={`
+											text-2xl
+											${isDarkMode ? "text-text-tertiary-dark" : "text-text-tertiary-light"}
+										`}
+									>
+										{openFaq.who ? "−" : "+"}
+									</span>
+								</button>
+								{openFaq.who && (
+									<div
+										className={`
+											px-6 pb-4 pt-2
+											${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
+										`}
+									>
+										<p className="leading-relaxed">
+											Any artist who cares about their digital art lasting beyond
+											today. If you're minting NFTs and want them to still work in
+											10, 20, or 100 years, Wayfinder helps by not putting all your
+											eggs in one basket. Works with Manifold Creator Cores (ERC721
+											and ERC1155).
+										</p>
+									</div>
+								)}
+							</div>
+						</div>
+					</section>
+
+					{/* CTA Section - VIBRANT */}
+					<section className="py-16 text-center relative">
+						{/* Background glow */}
+						<div className={`absolute inset-0 overflow-hidden pointer-events-none ${isDarkMode ? "opacity-30" : "opacity-20"}`}>
+							<div className="absolute inset-0 bg-gradient-to-r from-primary via-secondary to-primary blur-3xl" />
+						</div>
+
+						<div className="max-w-4xl mx-auto relative z-10">
+							<div
+								className={`
+									p-12 md:p-16 rounded-3xl
+									backdrop-blur-sm
+									${
+										isDarkMode
+											? "bg-surface-dark/90 border-2 border-border-dark shadow-strong"
+											: "bg-surface-light/90 border-2 border-border-light shadow-strong"
+									}
+								`}
+							>
+								<Sparkles className={`w-16 h-16 mx-auto mb-6 ${isDarkMode ? "text-primary-dark" : "text-primary"}`} />
+								
+								<h2
+									className={`
+										text-3xl md:text-5xl font-bold mb-6
+										${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
+									`}
+								>
+									Ready to protect your art?
+								</h2>
+								<p
+									className={`
+										text-lg md:text-xl mb-10 leading-relaxed
+										${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
+									`}
+								>
+									Join artists who are building NFTs that last centuries, not just years
+								</p>
+								<Link
+									to="/collections"
+									className="group inline-block px-12 py-6 rounded-2xl text-xl font-bold bg-gradient-to-r from-primary to-secondary hover:from-primary-hover hover:to-secondary-hover text-white shadow-strong hover:shadow-[0_12px_48px_rgba(59,130,246,0.6)] transition-all duration-300 hover:scale-105"
+								>
+									<span className="flex items-center gap-3">
+										Start Protecting Your Art
+										<Sparkles className="w-6 h-6 group-hover:rotate-12 transition-transform" />
+									</span>
+								</Link>
+							</div>
+						</div>
+					</section>
 				</div>
 			</div>
 

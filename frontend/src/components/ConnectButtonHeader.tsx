@@ -41,11 +41,16 @@ export default function ConnectButtonHeader({ isDarkMode }: ConnectButtonHeaderP
 									<button
 										onClick={openConnectModal}
 										type="button"
-										className={`px-3 py-1 text-xs border rounded transition-colors ${
-											isDarkMode
-												? "border-zinc-600 text-zinc-400 hover:text-zinc-100 hover:border-zinc-400"
-												: "border-zinc-300 text-zinc-600 hover:text-zinc-900 hover:border-zinc-600"
-										}`}
+										className={`
+											px-3 py-1.5 text-sm rounded-md
+											border font-medium
+											transition-all duration-200
+											${
+												isDarkMode
+													? "border-border-dark text-text-secondary-dark hover:text-text-primary-dark hover:border-border-hover-dark"
+													: "border-border-light text-text-secondary-light hover:text-text-primary-light hover:border-border-hover-light"
+											}
+										`}
 									>
 										Connect
 									</button>
@@ -57,7 +62,12 @@ export default function ConnectButtonHeader({ isDarkMode }: ConnectButtonHeaderP
 									<button
 										onClick={openChainModal}
 										type="button"
-										className={`px-3 py-1 text-xs border rounded transition-colors border-red-600 text-red-400 hover:text-red-300 hover:border-red-500`}
+										className="
+											px-3 py-1.5 text-sm rounded-md
+											border border-danger
+											text-danger hover:text-danger-dark
+											font-medium transition-all duration-200
+										"
 									>
 										Wrong network
 									</button>
@@ -68,11 +78,16 @@ export default function ConnectButtonHeader({ isDarkMode }: ConnectButtonHeaderP
 								<div className="flex gap-2">
 									<button
 										onClick={openChainModal}
-										className={`px-3 py-1 text-xs border rounded transition-colors ${
-											isDarkMode
-												? "border-zinc-600 text-zinc-400 hover:text-zinc-100 hover:border-zinc-400"
-												: "border-zinc-300 text-zinc-600 hover:text-zinc-900 hover:border-zinc-600"
-										}`}
+										className={`
+											px-3 py-1.5 text-sm rounded-md
+											border font-medium
+											transition-all duration-200
+											${
+												isDarkMode
+													? "border-border-dark text-text-secondary-dark hover:text-text-primary-dark hover:bg-surface-hover-dark"
+													: "border-border-light text-text-secondary-light hover:text-text-primary-light hover:bg-surface-hover-light"
+											}
+										`}
 										type="button"
 									>
 										{chain.name}
@@ -81,11 +96,14 @@ export default function ConnectButtonHeader({ isDarkMode }: ConnectButtonHeaderP
 									<button
 										onClick={openAccountModal}
 										type="button"
-										className={`px-3 py-1 text-xs border rounded transition-colors ${
-											isDarkMode
-												? "border-zinc-600 text-zinc-400 hover:text-zinc-100 hover:border-zinc-400"
-												: "border-zinc-300 text-zinc-600 hover:text-zinc-900 hover:border-zinc-600"
-										}`}
+										className="
+											px-3 py-1.5 text-sm rounded-md
+											bg-primary hover:bg-primary-hover
+											dark:bg-primary-dark dark:hover:bg-primary-dark-hover
+											text-white font-medium
+											shadow-soft hover:shadow-medium
+											transition-all duration-200
+										"
 									>
 										{account.displayName}
 									</button>

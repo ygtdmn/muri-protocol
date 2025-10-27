@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import type { ReactNode } from "react";
 import { ThemeContext } from "../hooks/useTheme";
+import { colors } from "../theme/colors";
 
 interface ThemeProviderProps {
 	children: ReactNode;
@@ -14,65 +15,64 @@ export function ThemeProvider({
 	toggleTheme,
 }: ThemeProviderProps) {
 	useEffect(() => {
-		// Update body classes based on theme
-		document.body.className = isDarkMode
-			? "bg-zinc-950 text-zinc-100 font-mono"
-			: "bg-zinc-50 text-zinc-900 font-mono";
-
-		// Update color scheme
-		document.documentElement.style.colorScheme = isDarkMode ? "dark" : "light";
-
-		// Update CSS custom properties for theme-aware components
 		const root = document.documentElement;
+		const theme = isDarkMode ? colors.dark : colors.light;
+
+		// Update dark class on root
 		if (isDarkMode) {
-			root.style.setProperty("--card-bg", "#18181b"); // zinc-900
-			root.style.setProperty("--card-border", "#27272a"); // zinc-800
-			root.style.setProperty("--card-hover-bg", "#27272a"); // zinc-800
-			root.style.setProperty("--card-hover-border", "#3f3f46"); // zinc-700
-			root.style.setProperty("--input-bg", "#18181b"); // zinc-900
-			root.style.setProperty("--input-border", "#3f3f46"); // zinc-700
-			root.style.setProperty("--input-text", "#f4f4f5"); // zinc-100
-			root.style.setProperty("--input-placeholder", "#a1a1aa"); // zinc-400
-			root.style.setProperty("--label-text", "#d4d4d8"); // zinc-300
-			root.style.setProperty("--help-text", "#a1a1aa"); // zinc-400
-			root.style.setProperty("--btn-secondary-bg", "#27272a"); // zinc-800
-			root.style.setProperty("--btn-secondary-text", "#f4f4f5"); // zinc-100
-			root.style.setProperty("--btn-secondary-border", "#3f3f46"); // zinc-700
-			root.style.setProperty("--btn-secondary-hover", "#3f3f46"); // zinc-700
-			root.style.setProperty("--btn-primary-bg", "#f4f4f5"); // zinc-100
-			root.style.setProperty("--btn-primary-text", "#18181b"); // zinc-900
-			root.style.setProperty("--btn-primary-hover", "#e4e4e7"); // zinc-200
-			root.style.setProperty("--btn-danger-bg", "#dc2626"); // red-600
-			root.style.setProperty("--btn-danger-text", "#ffffff"); // white
-			root.style.setProperty("--btn-danger-hover", "#b91c1c"); // red-700
-			root.style.setProperty("--btn-ghost-text", "#a1a1aa"); // zinc-400
-			root.style.setProperty("--btn-ghost-hover-text", "#f4f4f5"); // zinc-100
-			root.style.setProperty("--btn-ghost-hover-bg", "#27272a"); // zinc-800
+			root.classList.add('dark');
 		} else {
-			root.style.setProperty("--card-bg", "#ffffff"); // white
-			root.style.setProperty("--card-border", "#e4e4e7"); // zinc-300
-			root.style.setProperty("--card-hover-bg", "#f4f4f5"); // zinc-100
-			root.style.setProperty("--card-hover-border", "#d4d4d8"); // zinc-300
-			root.style.setProperty("--input-bg", "#ffffff"); // white
-			root.style.setProperty("--input-border", "#d4d4d8"); // zinc-300
-			root.style.setProperty("--input-text", "#18181b"); // zinc-900
-			root.style.setProperty("--input-placeholder", "#71717a"); // zinc-500
-			root.style.setProperty("--label-text", "#3f3f46"); // zinc-700
-			root.style.setProperty("--help-text", "#71717a"); // zinc-500
-			root.style.setProperty("--btn-secondary-bg", "#e4e4e7"); // zinc-200 - darker background for better readability
-			root.style.setProperty("--btn-secondary-text", "#18181b"); // zinc-900
-			root.style.setProperty("--btn-secondary-border", "#d4d4d8"); // zinc-300
-			root.style.setProperty("--btn-secondary-hover", "#d4d4d8"); // zinc-300
-			root.style.setProperty("--btn-primary-bg", "#18181b"); // zinc-900 - dark button in light mode
-			root.style.setProperty("--btn-primary-text", "#f4f4f5"); // zinc-100 - light text on dark button
-			root.style.setProperty("--btn-primary-hover", "#27272a"); // zinc-800
-			root.style.setProperty("--btn-danger-bg", "#dc2626"); // red-600
-			root.style.setProperty("--btn-danger-text", "#ffffff"); // white
-			root.style.setProperty("--btn-danger-hover", "#b91c1c"); // red-700
-			root.style.setProperty("--btn-ghost-text", "#71717a"); // zinc-500
-			root.style.setProperty("--btn-ghost-hover-text", "#18181b"); // zinc-900
-			root.style.setProperty("--btn-ghost-hover-bg", "#f4f4f5"); // zinc-100
+			root.classList.remove('dark');
 		}
+
+		// Update body styles
+		document.body.className = isDarkMode
+			? "bg-bg-dark text-text-primary-dark font-sans antialiased"
+			: "bg-bg-light text-text-primary-light font-sans antialiased";
+
+		// Update color scheme for native browser UI
+		root.style.colorScheme = isDarkMode ? "dark" : "light";
+
+		// Set CSS custom properties (for backward compatibility with old components)
+		root.style.setProperty("--card-bg", theme.surface);
+		root.style.setProperty("--card-border", theme.border);
+		root.style.setProperty("--card-hover-bg", theme.surfaceHover);
+		root.style.setProperty("--card-hover-border", theme.borderHover);
+		root.style.setProperty("--input-bg", theme.surface);
+		root.style.setProperty("--input-border", theme.border);
+		root.style.setProperty("--input-text", theme.textPrimary);
+		root.style.setProperty("--input-placeholder", theme.textTertiary);
+		root.style.setProperty("--label-text", theme.textPrimary);
+		root.style.setProperty("--help-text", theme.textSecondary);
+
+		// Button colors - using new primary/secondary system
+		if (isDarkMode) {
+			root.style.setProperty("--btn-primary-bg", "#60A5FA"); // primary-dark
+			root.style.setProperty("--btn-primary-text", "#18181B"); // bg-dark
+			root.style.setProperty("--btn-primary-hover", "#3B82F6");
+			root.style.setProperty("--btn-secondary-bg", "#27272A");
+			root.style.setProperty("--btn-secondary-text", "#FAFAF9");
+			root.style.setProperty("--btn-secondary-border", "#3F3F46");
+			root.style.setProperty("--btn-secondary-hover", "#3F3F46");
+			root.style.setProperty("--btn-ghost-text", "#A1A1AA");
+			root.style.setProperty("--btn-ghost-hover-text", "#FAFAF9");
+			root.style.setProperty("--btn-ghost-hover-bg", "#3F3F46");
+		} else {
+			root.style.setProperty("--btn-primary-bg", "#3B82F6"); // primary
+			root.style.setProperty("--btn-primary-text", "#FFFFFF");
+			root.style.setProperty("--btn-primary-hover", "#2563EB");
+			root.style.setProperty("--btn-secondary-bg", "#FFFFFF");
+			root.style.setProperty("--btn-secondary-text", "#27272A");
+			root.style.setProperty("--btn-secondary-border", "#E4E4E7");
+			root.style.setProperty("--btn-secondary-hover", "#F5F5F4");
+			root.style.setProperty("--btn-ghost-text", "#71717A");
+			root.style.setProperty("--btn-ghost-hover-text", "#27272A");
+			root.style.setProperty("--btn-ghost-hover-bg", "#F5F5F4");
+		}
+
+		root.style.setProperty("--btn-danger-bg", theme.danger);
+		root.style.setProperty("--btn-danger-text", "#ffffff");
+		root.style.setProperty("--btn-danger-hover", isDarkMode ? "#DC2626" : "#B91C1C");
 	}, [isDarkMode]);
 
 	return (
