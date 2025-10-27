@@ -3,6 +3,9 @@ export default {
 	darkMode: "class",
 	theme: {
 		extend: {
+			fontFamily: {
+				mono: ['"JetBrains Mono"', 'Consolas', '"Courier New"', 'monospace'],
+			},
 			colors: {
 				primary: "#ea580c",
 				"primary-dark": "#c2410c",
