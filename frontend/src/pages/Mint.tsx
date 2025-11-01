@@ -1,20 +1,21 @@
 import { useMemo, useState, useCallback, useEffect } from "react";
-import { useWriteContract, useWaitForTransactionReceipt, useAccount, useChainId } from "wagmi";
+import { useWriteContract, useWaitForTransactionReceipt, useAccount, useChainId, useWalletClient } from "wagmi";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import type { Address } from "viem";
 import { decodeEventLog } from "viem";
 import { wayfinderExtensionAbi } from "../abis/wayfinder-manifold-extension-abi";
 import fastlz from "../lib/fastlz";
 import { sha256 } from "js-sha256";
-import { Upload, Link2, Sparkles, ChevronDown, User, Info } from "lucide-react";
-import { 
-	isFileSupported, 
-	getUnsupportedFileMessage, 
+import { Upload, Link2, Sparkles, ChevronDown, User, Info, Cloud } from "lucide-react";
+import {
+	isFileSupported,
+	getUnsupportedFileMessage,
 	getFileInfo,
 	isThumbnailSupported,
 	getThumbnailAcceptAttribute,
 	getUnsupportedThumbnailMessage
 } from "../utils/fileValidation";
+import { pinToIPFSWithX402, getIPFSUrl, estimatePinningCost } from "../utils/pinatax402";
 import FilePreview from "../components/FilePreview";
 import Header from "../components/Header";
 import { useTheme } from "../hooks/useTheme";
@@ -27,6 +28,7 @@ export default function Mint() {
 	const navigate = useNavigate();
 	const { address: connectedAddress } = useAccount();
 	const chainId = useChainId();
+	const { data: walletClient } = useWalletClient();
 	const creator = (sp.get("creator") || "") as Address;
 	const type = sp.get("type") || "Unknown";
 	const { isDarkMode, toggleTheme } = useTheme();
@@ -56,6 +58,12 @@ export default function Mint() {
 	const [thumbMime, setThumbMime] = useState("");
 	const [thumbLength, setThumbLength] = useState<number>(0);
 	const [thumbChunks, setThumbChunks] = useState<string[]>([]);
+	
+	// x402 IPFS Pinning
+	const [enableX402Pinning, setEnableX402Pinning] = useState(false);
+	const [isPinning, setIsPinning] = useState(false);
+	const [pinnedCid, setPinnedCid] = useState<string>("");
+	const [pinningError, setPinningError] = useState<string>("");
 	
 	// Fine-grained permissions (only visible in advanced)
 	const [useCustomPermissions, setUseCustomPermissions] = useState(false);
@@ -161,6 +169,41 @@ export default function Mint() {
 		setThumbChunks(chunks);
 	}, []);
 
+	const handleX402Pinning = useCallback(async () => {
+		if (!artworkFile || !walletClient) {
+			setPinningError("Missing artwork file or wallet connection");
+			return;
+		}
+
+		setIsPinning(true);
+		setPinningError("");
+		setPinnedCid("");
+
+		try {
+			const result = await pinToIPFSWithX402({
+				file: artworkFile,
+				name: name || artworkFile.name,
+				walletClient,
+			});
+
+			const ipfsUrl = getIPFSUrl(result.cid);
+			setPinnedCid(result.cid);
+			
+			// Auto-populate backup URLs with the IPFS URL if empty
+			if (!backupUrls.trim()) {
+				setBackupUrls(ipfsUrl);
+			} else if (!backupUrls.includes(ipfsUrl)) {
+				setBackupUrls(`${ipfsUrl}\n${backupUrls}`);
+			}
+
+			setIsPinning(false);
+		} catch (error) {
+			console.error("x402 pinning error:", error);
+			setPinningError(error instanceof Error ? error.message : "Failed to pin to IPFS");
+			setIsPinning(false);
+		}
+	}, [artworkFile, walletClient, name, backupUrls]);
+
 	const backupUrlsArray = useMemo(
 		() => backupUrls.split("\n").map((s) => s.trim()).filter(Boolean),
 		[backupUrls]
@@ -227,12 +270,12 @@ export default function Mint() {
 			},
 			thumbnail: {
 				kind: useOffchainThumbnail ? 1 : 0,
-				onChain: { 
-					mimeType: useOffchainThumbnail ? "" : thumbMime, 
-					chunks: [] as readonly Address[], 
+				onChain: {
+					mimeType: useOffchainThumbnail ? "" : thumbMime,
+					chunks: [] as readonly Address[],
 					zipped: !useOffchainThumbnail 
 				},
-				offChain: { 
+				offChain: {
 					uris: (useOffchainThumbnail && thumbnailUrlsArray.length > 0 
 						? thumbnailUrlsArray 
 						: backupUrlsArray) as readonly string[], 
@@ -252,22 +295,22 @@ export default function Mint() {
 		const thumbnailChunksToSend = useOffchainThumbnail ? [] : (thumbChunks as readonly `0x${string}`[]);
 
 		if (type === "ERC721") {
-			writeContract({
-				abi: wayfinderExtensionAbi,
-				address: import.meta.env.VITE_WAYFINDER_EXTENSION_ADDRESS as Address,
+				writeContract({
+					abi: wayfinderExtensionAbi,
+					address: import.meta.env.VITE_WAYFINDER_EXTENSION_ADDRESS as Address,
 				functionName: "mintERC721",
 				args: [creator, recipientAddress, initConfig, thumbnailChunksToSend, []],
-				value: 0n,
-			});
-		} else {
-			writeContract({
-				abi: wayfinderExtensionAbi,
-				address: import.meta.env.VITE_WAYFINDER_EXTENSION_ADDRESS as Address,
+					value: 0n,
+				});
+			} else {
+				writeContract({
+					abi: wayfinderExtensionAbi,
+					address: import.meta.env.VITE_WAYFINDER_EXTENSION_ADDRESS as Address,
 				functionName: "mintERC1155",
 				args: [creator, [recipientAddress], [BigInt(1)], initConfig, thumbnailChunksToSend, []],
-				value: 0n,
-			});
-		}
+					value: 0n,
+				});
+			}
 	};
 
 	// === SUCCESS STATE ===
@@ -550,6 +593,118 @@ export default function Mint() {
 										))}
 											</div>
 						</div>
+								
+								{/* x402 IPFS Auto-Pinning */}
+								<div className={`mt-6 p-6 rounded-xl border-2 ${
+									enableX402Pinning 
+										? isDarkMode ? "bg-secondary-dark-subtle border-secondary-dark" : "bg-secondary-subtle border-secondary"
+										: isDarkMode ? "bg-surface-dark border-border-dark" : "bg-white border-border-light"
+								}`}>
+									<div className="flex items-start gap-3 mb-4">
+										<Cloud className={`w-6 h-6 mt-1 ${
+											enableX402Pinning
+												? isDarkMode ? "text-secondary-dark" : "text-secondary"
+												: isDarkMode ? "text-text-tertiary-dark" : "text-text-tertiary-light"
+										}`} />
+										<div className="flex-1">
+											<label className="flex items-center gap-3 cursor-pointer">
+												<input
+													type="checkbox"
+													checked={enableX402Pinning}
+													onChange={(e) => {
+														setEnableX402Pinning(e.target.checked);
+														if (!e.target.checked) {
+															setPinnedCid("");
+															setPinningError("");
+														}
+													}}
+													className="w-5 h-5"
+												/>
+												<div>
+													<p className={`font-bold ${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}`}>
+														🚀 Auto-pin to IPFS (Pinata x402)
+													</p>
+													<p className={`text-sm ${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}`}>
+														Pay to pin your file to IPFS for 12 months via x402 protocol
+														{artworkFile && ` • Est. ${estimatePinningCost(artworkFile.size)} USDC`}
+													</p>
+												</div>
+											</label>
+										</div>
+									</div>
+
+									{enableX402Pinning && (
+										<div className="mt-4 space-y-3">
+											{!pinnedCid && !isPinning && !pinningError && (
+												<button
+													type="button"
+													onClick={handleX402Pinning}
+													disabled={!artworkFile || !walletClient}
+													className={`w-full px-5 py-3 rounded-xl font-bold transition-all ${
+														!artworkFile || !walletClient
+															? "opacity-50 cursor-not-allowed bg-surface-hover-light dark:bg-surface-hover-dark"
+															: "bg-gradient-to-r from-secondary to-primary hover:from-secondary-hover hover:to-primary-hover text-white shadow-soft hover:shadow-medium hover:scale-[1.02]"
+													}`}
+												>
+													<span className="flex items-center justify-center gap-2">
+														<Cloud className="w-5 h-5" />
+														Pin to IPFS Now
+													</span>
+												</button>
+											)}
+
+											{isPinning && (
+												<div className={`p-4 rounded-lg ${isDarkMode ? "bg-surface-hover-dark" : "bg-surface-hover-light"}`}>
+													<div className="flex items-center gap-3">
+														<div className="animate-spin rounded-full h-5 w-5 border-b-2 border-secondary dark:border-secondary-dark"></div>
+														<p className={`text-sm font-semibold ${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}`}>
+															Waiting for payment approval and pinning...
+														</p>
+													</div>
+												</div>
+											)}
+
+											{pinnedCid && (
+												<div className={`p-4 rounded-lg ${isDarkMode ? "bg-success-dark-subtle border border-success-dark" : "bg-success-subtle border border-success"}`}>
+													<p className={`text-sm font-bold mb-2 ${isDarkMode ? "text-success-dark" : "text-success"}`}>
+														✓ Pinned successfully!
+													</p>
+													<p className={`text-xs font-mono break-all ${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}`}>
+														CID: {pinnedCid}
+													</p>
+													<p className={`text-xs mt-2 ${isDarkMode ? "text-text-tertiary-dark" : "text-text-tertiary-light"}`}>
+														IPFS URL has been added to backup locations
+													</p>
+												</div>
+											)}
+
+											{pinningError && (
+												<div className={`p-4 rounded-lg ${isDarkMode ? "bg-danger-dark-subtle border border-danger-dark" : "bg-danger-subtle border border-danger"}`}>
+													<p className={`text-sm font-bold mb-1 ${isDarkMode ? "text-danger-dark" : "text-danger"}`}>
+														Failed to pin
+													</p>
+													<p className={`text-xs ${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}`}>
+														{pinningError}
+													</p>
+													<button
+														type="button"
+														onClick={handleX402Pinning}
+														className={`mt-3 text-sm font-semibold ${isDarkMode ? "text-secondary-dark hover:underline" : "text-secondary hover:underline"}`}
+													>
+														Try again
+													</button>
+												</div>
+											)}
+
+											<div className={`text-xs ${isDarkMode ? "text-text-tertiary-dark" : "text-text-tertiary-light"}`}>
+												<p className="flex items-start gap-2">
+													<span>ℹ️</span>
+													<span>Uses x402 protocol for instant, frictionless payments. Your wallet will prompt you to approve the payment in USDC on Base.</span>
+												</p>
+											</div>
+										</div>
+									)}
+								</div>
 					</div>
 
 							{/* Permission Presets */}
@@ -637,7 +792,7 @@ export default function Mint() {
 									→ Me
 								</button>
 													)}
-											</div>
+										</div>
 											</div>
 
 					{/* Advanced Options - COLLAPSED */}
@@ -688,7 +843,7 @@ export default function Mint() {
 										>
 											✕
 										</button>
-													</div>
+									</div>
 								))}
 								<button
 									type="button"
@@ -730,11 +885,11 @@ export default function Mint() {
 												</p>
 												<p className={`text-sm ${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}`}>
 													{mode.desc}
-												</p>
-												</div>
+										</p>
+									</div>
 										</label>
 									))}
-											</div>
+						</div>
 					</div>
 
 							{/* Thumbnail Options */}
@@ -794,10 +949,10 @@ export default function Mint() {
 											</p>
 										</div>
 									</label>
-								</div>
+							</div>
 
 								{!useOffchainThumbnail && (
-									<div>
+								<div>
 										<label className={`block text-sm font-semibold mb-2 ${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}`}>
 											Upload Thumbnail File
 										</label>
@@ -807,23 +962,23 @@ export default function Mint() {
 													? "border-border-dark hover:border-primary-dark hover:bg-surface-hover-dark"
 													: "border-border-light hover:border-primary hover:bg-surface-hover-light"
 											} ${thumbnailFile ? "border-solid border-success dark:border-success-dark" : ""}`}
-											onClick={() => {
-												const input = document.createElement("input");
-												input.type = "file";
-												input.accept = getThumbnailAcceptAttribute();
-												input.onchange = () => {
-													const file = input.files?.[0];
-													if (file && isThumbnailSupported(file)) {
-														prepareThumbnail(file);
-													} else if (file) {
-														alert(getUnsupportedThumbnailMessage(file));
-													}
-												};
-												input.click();
-											}}
-										>
-											{thumbnailPreview ? (
-												<div className="space-y-3">
+										onClick={() => {
+											const input = document.createElement("input");
+											input.type = "file";
+											input.accept = getThumbnailAcceptAttribute();
+											input.onchange = () => {
+												const file = input.files?.[0];
+												if (file && isThumbnailSupported(file)) {
+													prepareThumbnail(file);
+												} else if (file) {
+													alert(getUnsupportedThumbnailMessage(file));
+												}
+											};
+											input.click();
+										}}
+									>
+										{thumbnailPreview ? (
+											<div className="space-y-3">
 													<FilePreview file={thumbnailFile} previewUrl={thumbnailPreview} maxHeight="max-h-32" />
 													<p className={`text-sm ${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}`}>
 														{thumbChunks.length} chunks • {thumbLength} bytes • {(thumbLength / 1024).toFixed(1)}KB
@@ -833,27 +988,27 @@ export default function Mint() {
 															⚠️ Large file - may result in high gas costs
 														</p>
 													)}
-												</div>
-											) : (
-												<div>
+								</div>
+							) : (
+								<div>
 													<Upload className={`w-10 h-10 mx-auto mb-2 ${isDarkMode ? "text-text-tertiary-dark" : "text-text-tertiary-light"}`} />
 													<p className={`text-sm font-semibold ${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}`}>
 														Drop thumbnail or click to browse
 													</p>
 													<p className={`text-xs mt-1 ${isDarkMode ? "text-text-tertiary-dark" : "text-text-tertiary-light"}`}>
 														Image files only • Max 120KB
-													</p>
-												</div>
-											)}
-										</div>
-									</div>
+									</p>
+								</div>
+							)}
+						</div>
+					</div>
 								)}
 
 								{useOffchainThumbnail && (
-									<div>
+								<div>
 										<label className={`block text-sm font-semibold mb-2 ${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}`}>
 											Thumbnail URLs (optional)
-										</label>
+									</label>
 										<textarea
 											rows={3}
 											className={`w-full px-4 py-3 rounded-lg font-mono text-sm border ${isDarkMode ? "bg-surface-dark border-border-dark text-text-primary-dark" : "bg-white border-border-light text-text-primary-light"} focus:outline-none focus:ring-2 focus:ring-primary`}
@@ -863,10 +1018,10 @@ export default function Mint() {
 										/>
 										<p className={`text-xs mt-1 ${isDarkMode ? "text-text-tertiary-dark" : "text-text-tertiary-light"}`}>
 											One URL per line, or leave empty to use artwork URLs as thumbnails
-										</p>
-									</div>
-								)}
-							</div>
+												</p>
+											</div>
+										)}
+					</div>
 
 							{/* Custom Permissions */}
 							<div className="space-y-4">
