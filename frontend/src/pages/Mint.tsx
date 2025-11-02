@@ -1,8 +1,9 @@
 import { useMemo, useState, useCallback, useEffect } from "react";
-import { useWriteContract, useWaitForTransactionReceipt, useAccount, useChainId, useWalletClient } from "wagmi";
+import { useWriteContract, useWaitForTransactionReceipt, useAccount, useChainId, useWalletClient, useSwitchChain } from "wagmi";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import type { Address } from "viem";
 import { decodeEventLog } from "viem";
+import { base } from "wagmi/chains";
 import { wayfinderExtensionAbi } from "../abis/wayfinder-manifold-extension-abi";
 import fastlz from "../lib/fastlz";
 import { sha256 } from "js-sha256";
@@ -30,6 +31,7 @@ export default function Mint() {
 	const { address: connectedAddress } = useAccount();
 	const chainId = useChainId();
 	const { data: walletClient } = useWalletClient();
+	const { switchChainAsync } = useSwitchChain();
 	const creator = (sp.get("creator") || "") as Address;
 	const type = sp.get("type") || "Unknown";
 	const { isDarkMode, toggleTheme } = useTheme();
@@ -196,7 +198,7 @@ export default function Mint() {
 	}, []);
 
 	const handleX402Pinning = useCallback(async () => {
-		if (!artworkFile || !walletClient) {
+		if (!artworkFile || !walletClient || !switchChainAsync) {
 			setPinningError("Missing artwork file or wallet connection");
 			return;
 		}
@@ -205,35 +207,65 @@ export default function Mint() {
 		setPinningError("");
 		setPinnedCid("");
 
+		const originalChainId = chainId;
+
 		try {
+			// Switch to Base if not already on it (Pinata x402 only works on Base)
+			if (chainId !== base.id) {
+				try {
+					await switchChainAsync({ chainId: base.id });
+				} catch {
+					throw new Error("Please switch to Base network to use x402 pinning");
+				}
+			}
+
 			const result = await pinToIPFSWithX402({
 				file: artworkFile,
 				name: name || artworkFile.name,
 				walletClient,
 			});
 
-			const ipfsUrl = getIPFSUrl(result.cid);
-			setPinnedCid(result.cid);
-			
-			// Auto-populate backup URLs with the IPFS URL if empty
-			if (!backupUrls.trim()) {
-				setBackupUrls(ipfsUrl);
-			} else if (!backupUrls.includes(ipfsUrl)) {
-				setBackupUrls(`${ipfsUrl}\n${backupUrls}`);
+			// Ensure we have a valid CID before proceeding
+			if (!result?.cid) {
+				throw new Error('No CID returned from pinning service');
 			}
 
+			setPinnedCid(result.cid);
 			setIsPinning(false);
+
+			// Switch back to original chain if it was different
+			if (originalChainId !== base.id) {
+				try {
+					await switchChainAsync({ chainId: originalChainId });
+				} catch {
+					// Ignore errors when switching back
+				}
+			}
 		} catch (error) {
 			console.error("x402 pinning error:", error);
 			setPinningError(error instanceof Error ? error.message : "Failed to pin to IPFS");
 			setIsPinning(false);
-		}
-	}, [artworkFile, walletClient, name, backupUrls]);
 
-	const backupUrlsArray = useMemo(
-		() => backupUrls.split("\n").map((s) => s.trim()).filter(Boolean),
-		[backupUrls]
-	);
+			// Try to switch back on error too
+			if (originalChainId !== base.id) {
+				try {
+					await switchChainAsync({ chainId: originalChainId });
+				} catch {
+					// Ignore errors when switching back
+				}
+			}
+		}
+	}, [artworkFile, walletClient, switchChainAsync, chainId, name]);
+
+	const backupUrlsArray = useMemo(() => {
+		const manualUrls = backupUrls.split("\n").map((s) => s.trim()).filter(Boolean);
+		// If we have a pinned CID, add it as the first backup URL
+		if (pinnedCid) {
+			const ipfsUrl = getIPFSUrl(pinnedCid);
+			return [ipfsUrl, ...manualUrls];
+		}
+		return manualUrls;
+	}, [backupUrls, pinnedCid]);
 
 	const permissionsFlags = useMemo(() => {
 		if (useCustomPermissions) {
@@ -356,7 +388,7 @@ export default function Mint() {
 				</div>
 
 					<h2 className={`text-4xl md:text-5xl font-bold mb-4 ${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}`}>
-						Your Art is Protected! 🎨
+						Your Art is Protected!
 				</h2>
 					<p className={`text-xl mb-3 ${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}`}>
 						Minted with {backupUrlsArray.length} backup location{backupUrlsArray.length !== 1 ? 's' : ''}
@@ -560,13 +592,7 @@ export default function Mint() {
 										<input
 											type="checkbox"
 											checked={enableX402Pinning}
-											onChange={(e) => {
-												setEnableX402Pinning(e.target.checked);
-												if (!e.target.checked) {
-													setPinnedCid("");
-													setPinningError("");
-												}
-											}}
+											onChange={(e) => setEnableX402Pinning(e.target.checked)}
 											className="w-5 h-5 mt-0.5"
 										/>
 										<div className="flex-1">
@@ -603,7 +629,7 @@ export default function Mint() {
 													<div className="flex items-center gap-3">
 														<div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary dark:border-primary-dark"></div>
 														<p className={`text-sm font-semibold ${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}`}>
-															Waiting for payment approval...
+															{chainId !== base.id ? "Switching to Base network..." : "Waiting for payment approval..."}
 														</p>
 													</div>
 												</div>
@@ -612,11 +638,25 @@ export default function Mint() {
 											{pinnedCid && (
 												<div className={`p-4 rounded-lg ${isDarkMode ? "bg-success-dark-subtle border border-success-dark" : "bg-success-subtle border border-success"}`}>
 													<p className={`text-sm font-bold mb-2 ${isDarkMode ? "text-success-dark" : "text-success"}`}>
-														✓ Pinned successfully!
+														✓ Pinned to IPFS!
 													</p>
-													<p className={`text-xs font-mono break-all ${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}`}>
-														{pinnedCid}
+													<p className={`text-xs mb-1 ${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}`}>
+														This URL will be included in your backup locations
 													</p>
+													<p className={`text-xs font-mono break-all mb-3 ${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}`}>
+														{getIPFSUrl(pinnedCid)}
+													</p>
+													<button
+														type="button"
+														onClick={() => {
+															setPinnedCid("");
+															setPinningError("");
+															setIsPinning(false);
+														}}
+														className={`text-xs font-semibold ${isDarkMode ? "text-success-dark hover:underline" : "text-success hover:underline"}`}
+													>
+														Clear and pin another file
+													</button>
 												</div>
 											)}
 
@@ -628,13 +668,26 @@ export default function Mint() {
 													<p className={`text-xs ${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}`}>
 														{pinningError}
 													</p>
-													<button
-														type="button"
-														onClick={handleX402Pinning}
-														className={`mt-3 text-sm font-semibold ${isDarkMode ? "text-primary-dark hover:underline" : "text-primary hover:underline"}`}
-													>
-														Try again
-													</button>
+													<div className="flex gap-2 mt-3">
+														<button
+															type="button"
+															onClick={handleX402Pinning}
+															className={`text-sm font-semibold ${isDarkMode ? "text-primary-dark hover:underline" : "text-primary hover:underline"}`}
+														>
+															Try again
+														</button>
+														<button
+															type="button"
+															onClick={() => {
+																setPinningError("");
+																setPinnedCid("");
+																setIsPinning(false);
+															}}
+															className={`text-sm font-semibold ${isDarkMode ? "text-text-secondary-dark hover:underline" : "text-text-secondary-light hover:underline"}`}
+														>
+															Clear
+														</button>
+													</div>
 												</div>
 											)}
 										</div>
@@ -653,10 +706,10 @@ export default function Mint() {
 										/>
 										<div className="flex-1">
 											<p className={`font-bold mb-1 ${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}`}>
-												Upload to Arweave via ar.io x402
+												Upload to Arweave
 											</p>
 											<p className={`text-sm ${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}`}>
-												Coming soon - permanent storage via x402 protocol
+												Coming soon - permanent storage
 											</p>
 										</div>
 									</label>
@@ -665,8 +718,13 @@ export default function Mint() {
 								{/* Manual Backup URLs */}
 								<div>
 									<label className={`block text-sm font-semibold mb-2 ${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}`}>
-										More Backup Locations (one per line)
+										{pinnedCid ? "More Backup Locations (optional)" : "Backup Locations (one per line)"}
 									</label>
+									{pinnedCid && (
+										<p className={`text-xs mb-2 ${isDarkMode ? "text-text-tertiary-dark" : "text-text-tertiary-light"}`}>
+											Add more locations if you want additional redundancy
+										</p>
+									)}
 									<textarea
 										rows={4}
 										className={`w-full px-4 py-3 rounded-lg font-mono text-sm border ${

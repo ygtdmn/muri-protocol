@@ -1,8 +1,8 @@
 import { http } from "wagmi";
-import { sepolia } from "wagmi/chains";
+import { sepolia, base } from "wagmi/chains";
 import { getDefaultConfig } from "@rainbow-me/rainbowkit";
 
-export const chains = [sepolia] as const;
+export const chains = [sepolia, base] as const;
 
 const projectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID as
 	| string
@@ -14,6 +14,7 @@ export const wagmiConfig = getDefaultConfig({
 	chains,
 	transports: {
 		[sepolia.id]: http(),
+		[base.id]: http(),
 	},
 	ssr: false,
 });

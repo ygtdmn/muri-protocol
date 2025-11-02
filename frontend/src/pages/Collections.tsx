@@ -327,10 +327,10 @@ export default function Collections() {
 										
 										<div>
 											<h3 className={`text-3xl font-bold mb-3 ${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}`}>
-												🎨 Creator
+											  Creator
 											</h3>
 											<p className={`text-lg leading-relaxed ${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}`}>
-												Mint NFTs with automatic backup protection. Keep full control over your work.
+												Mint NFTs with automatic backup protection.
 											</p>
 										</div>
 									</div>
@@ -358,10 +358,10 @@ export default function Collections() {
 										
 										<div>
 											<h3 className={`text-3xl font-bold mb-3 ${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}`}>
-												❤️ Collector
+												Collector
 											</h3>
 											<p className={`text-lg leading-relaxed ${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}`}>
-												Help preserve art you own. Add backup links and customize your pieces.
+												Help preserve art you own. Manage your backup links.
 											</p>
 										</div>
 									</div>
@@ -748,7 +748,7 @@ export default function Collections() {
 										}
 									>
 												<span className="flex items-center justify-center gap-2">
-													✨ Create New Artwork
+													Create New Artwork
 												</span>
 											</button>
 											<button
@@ -955,7 +955,7 @@ export default function Collections() {
 														}
 													>
 															<span className="flex items-center justify-center gap-2">
-																❤️ Enter Collector Zone
+																Enter Collector Zone
 															</span>
 														</button>
 														<p

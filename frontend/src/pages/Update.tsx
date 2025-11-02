@@ -684,7 +684,7 @@ export default function Update() {
 							${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
 						`}
 					>
-						Updated Successfully! ✨
+						Updated Successfully!
 					</h2>
 					<p
 						className={`

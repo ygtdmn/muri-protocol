@@ -279,7 +279,7 @@ export default function CollectorZone() {
 							${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
 						`}
 					>
-						Token Updated! ✨
+						Token Updated!
 					</h2>
 					<p
 						className={`
