@@ -209,6 +209,15 @@ export default function CollectorZone() {
 		setNewArtworkUri("");
 	};
 
+	const removeCollectorArtworkUri = (index: number) => {
+		writeContract({
+			abi: wayfinderAbi,
+			address: import.meta.env.VITE_WAYFINDER_ADDRESS as Address,
+			functionName: "removeArtworkUris",
+			args: [creator, BigInt(tokenId), [BigInt(index)]],
+		});
+	};
+
 	// Effect to refetch data after successful transactions
 	useEffect(() => {
 		if (isSuccess) {
@@ -351,7 +360,7 @@ export default function CollectorZone() {
 								${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
 							`}
 						>
-							Customize and help preserve the NFTs you own
+							Help preserve your artwork
 						</p>
 					</div>
 
@@ -537,7 +546,7 @@ export default function CollectorZone() {
 										value={displayMode}
 										onChange={(e) => setDisplayMode(Number(e.target.value))}
 									>
-										<option value={0}>Image</option>
+										<option value={0}>Direct Image</option>
 										<option value={1}>Smart HTML</option>
 									</select>
 									<p className="help-text">
@@ -710,15 +719,33 @@ export default function CollectorZone() {
 					) : null}
 
 					{/* Add Collector Artwork */}
-					{tokenData && allowAddArtwork && isHtmlMode ? (
-						<div className="card">
+					{tokenData && allowAddArtwork ? (
+						<div
+							className={`
+								p-6 rounded-xl
+								${
+									isDarkMode
+										? "bg-surface-dark border border-border-dark"
+										: "bg-surface-light border border-border-light shadow-soft"
+								}
+							`}
+						>
 							<h3
-								className={`text-lg font-semibold ${
-									isDarkMode ? "text-zinc-100" : "text-zinc-900"
-								} mb-4`}
+								className={`
+									text-xl font-bold mb-2
+									${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
+								`}
 							>
-								Add Your Artwork URI
+								Add Your Backup Links
 							</h3>
+							<p
+								className={`
+									text-sm mb-4
+									${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
+								`}
+							>
+								Help preserve this NFT by adding your own backup locations
+							</p>
 							<div className="space-y-4">
 								<div className="flex gap-2">
 									<input
@@ -737,7 +764,9 @@ export default function CollectorZone() {
 									</button>
 								</div>
 								<p className="help-text">
-									Add your own artwork URIs (only works in HTML display mode)
+									{isHtmlMode 
+										? "Your links will be automatically tried if artist's links fail"
+										: "Your links can be selected as the display source"}
 								</p>
 
 								{collectorArtworkUris && collectorArtworkUris.length > 0 ? (
@@ -747,12 +776,12 @@ export default function CollectorZone() {
 												isDarkMode ? "text-zinc-400" : "text-zinc-600"
 											}`}
 										>
-											Your artwork URIs:
+											Your backup links:
 										</p>
 										{collectorArtworkUris.map((uri: string, index: number) => (
 											<div
 												key={index}
-												className={`flex gap-2 items-center p-2 ${
+												className={`flex gap-2 items-center p-3 ${
 													isDarkMode
 														? "bg-zinc-800"
 														: "bg-zinc-100 border border-zinc-300"
@@ -765,6 +794,23 @@ export default function CollectorZone() {
 												>
 													{uri}
 												</span>
+												<button
+													type="button"
+													onClick={() => removeCollectorArtworkUri(index)}
+													disabled={isPending || isConfirming}
+													className={`
+														px-3 py-1 text-sm font-semibold rounded
+														transition-colors duration-200
+														${
+															isDarkMode
+																? "text-red-400 hover:bg-red-400 hover:bg-opacity-20"
+																: "text-red-600 hover:bg-red-100"
+														}
+														disabled:opacity-50 disabled:cursor-not-allowed
+													`}
+												>
+													Remove
+												</button>
 											</div>
 										))}
 									</div>
