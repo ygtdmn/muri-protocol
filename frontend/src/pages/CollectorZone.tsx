@@ -717,7 +717,7 @@ export default function CollectorZone() {
 									isDarkMode ? "text-zinc-100" : "text-zinc-900"
 								} mb-4`}
 							>
-								Add Your Artwork
+								Add Your Artwork URI
 							</h3>
 							<div className="space-y-4">
 								<div className="flex gap-2">

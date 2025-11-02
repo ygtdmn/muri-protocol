@@ -287,8 +287,11 @@ export default function Mint() {
 		
 		// Use preset
 		const presets = {
-			collaborative: (1<<0)|(1<<1)|(1<<2)|(1<<3)|(1<<4)|(1<<5)|(1<<6)|(1<<7)|(1<<8), 
+			// Collaborative: All permissions for both artist and collectors
+			collaborative: (1<<0)|(1<<1)|(1<<2)|(1<<3)|(1<<4)|(1<<5)|(1<<6)|(1<<7)|(1<<8)|(1<<9)|(1<<10), 
+			// Artist Only: All artist permissions, no collector permissions
 			full: (1<<0)|(1<<1)|(1<<2)|(1<<3)|(1<<4)|(1<<5)|(1<<6), 
+			// Frozen: No permissions for anyone
 			frozen: 0,
 		};
 		return presets[permissionPreset];
@@ -752,9 +755,9 @@ export default function Mint() {
 								</div>
 								<div className="grid gap-4">
 									{[
-										{ id: 'collaborative' as PermissionPreset, name: 'Collaborative', emoji: '🤝', desc: 'You control it, collectors can add backup links (recommended for preservation)' },
-										{ id: 'full' as PermissionPreset, name: 'Artist Only', emoji: '🎨', desc: 'Only you can make any changes' },
-										{ id: 'frozen' as PermissionPreset, name: 'Immutable', emoji: '❄️', desc: 'Nobody can change it (not recommended)' },
+										{ id: 'collaborative' as PermissionPreset, name: 'Collaborative', emoji: '🤝', desc: 'Both you and collectors have full control (recommended for preservation)' },
+										{ id: 'full' as PermissionPreset, name: 'Artist Only', emoji: '🎨', desc: 'Only you can make changes, collectors cannot do anything' },
+										{ id: 'frozen' as PermissionPreset, name: 'Immutable', emoji: '❄️', desc: 'Nobody can change it ever (not recommended)' },
 									].map((preset) => (
 										<label
 											key={preset.id}
