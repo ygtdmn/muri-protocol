@@ -8,44 +8,44 @@ export default {
 				mono: ['"Geist Mono"', 'Menlo', 'Monaco', 'monospace'],
 			},
 			colors: {
-				// Light mode base colors - WARMER
-				'bg-light': '#FDF8F4',        // Warm cream instead of grey
-				'surface-light': '#FFFCF9',   // Slightly warm white
-				'surface-hover-light': '#FEF6EE', // Peachy hover
-				'text-primary-light': '#2B1810', // Warm dark brown
-				'text-secondary-light': '#78614D', // Warm medium brown
-				'text-tertiary-light': '#A08B78',  // Warm light brown
-				'border-light': '#E8DDD1',     // Warm beige border
-				'border-hover-light': '#D9C6B3', // Darker warm border
+				// Light mode base colors - clean and minimal
+				'bg-light': '#FEFEFE',           // Almost white, very clean
+				'surface-light': '#FFFFFF',
+				'surface-hover-light': '#F8F8F8', // Subtle grey hover
+				'text-primary-light': '#1A1A1A',
+				'text-secondary-light': '#525252',
+				'text-tertiary-light': '#A3A3A3',
+				'border-light': '#E8E8E8',       // Clean grey border
+				'border-hover-light': '#D0D0D0', // Slightly darker
 				
-				// Dark mode base colors - WARMER
-				'bg-dark': '#1A1410',          // Warm black (not blue-black)
-				'surface-dark': '#2B231D',     // Warm charcoal
-				'surface-hover-dark': '#3D332A', // Lighter warm charcoal
-				'text-primary-dark': '#FFF9F2', // Warm white
-				'text-secondary-dark': '#BFB4A8', // Warm grey
-				'text-tertiary-dark': '#8A7D6F',  // Darker warm grey
-				'border-dark': '#3D332A',      // Warm border
-				'border-hover-dark': '#4D4239', // Lighter warm border
+				// Dark mode base colors - rich and deep
+				'bg-dark': '#0F0F0F',            // Rich black
+				'surface-dark': '#1A1A1A',       // Dark charcoal
+				'surface-hover-dark': '#252525', // Lighter charcoal
+				'text-primary-dark': '#FAFAFA',
+				'text-secondary-dark': '#A3A3A3',
+				'text-tertiary-dark': '#737373',
+				'border-dark': '#2A2A2A',        // Subtle dark border
+				'border-hover-dark': '#404040',  // Lighter dark border
 				
-				// Primary accent (Blue)
+				// Primary accent (Orange) - Energetic, warm, creative
 				primary: {
-					DEFAULT: '#3B82F6',
-					hover: '#2563EB',
-					subtle: '#EFF6FF',
-					dark: '#60A5FA',
-					'dark-hover': '#3B82F6',
-					'dark-subtle': '#1E3A8A',
+					DEFAULT: '#FF6B35',        // Vibrant orange
+					hover: '#E85A28',          // Darker orange
+					subtle: '#FFF4F0',         // Very light orange tint
+					dark: '#FF5722',           // Rich, saturated orange for dark mode
+					'dark-hover': '#F4511E',   // Deeper orange hover
+					'dark-subtle': '#4D2010',  // Deep orange shadow
 				},
 				
-				// Secondary accent (Coral/Orange)
+				// Secondary accent (Purple) - Sophisticated, creative balance
 				secondary: {
-					DEFAULT: '#F97316',
-					hover: '#EA580C',
-					subtle: '#FFF7ED',
-					dark: '#FB923C',
-					'dark-hover': '#F97316',
-					'dark-subtle': '#7C2D12',
+					DEFAULT: '#7B2CBF',        // Rich purple
+					hover: '#6A24A3',          // Darker purple
+					subtle: '#F7F0FF',         // Very light purple tint
+					dark: '#9D4EDD',           // Lighter purple for dark mode
+					'dark-hover': '#7B2CBF',   // Standard purple
+					'dark-subtle': '#2D0F47',  // Deep purple shadow
 				},
 				
 				// Status colors
@@ -73,9 +73,6 @@ export default {
 					dark: '#22D3EE',
 					'dark-subtle': '#164E63',
 				},
-				
-				// Legacy aliases for backward compatibility
-				error: '#EF4444',
 			},
 			borderRadius: {
 				'sm': '0.375rem',

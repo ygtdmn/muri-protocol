@@ -10,6 +10,7 @@ import { wayfinderAbi } from "../abis/wayfinder-abi";
 import Header from "../components/Header";
 import { useTheme } from "../hooks/useTheme";
 import Footer from "../components/Footer";
+import PageBackground from "../components/PageBackground";
 
 export default function CollectorZone() {
 	const [sp] = useSearchParams();
@@ -242,11 +243,9 @@ export default function CollectorZone() {
 
 	if (isSuccess) {
 		return (
-			<div
-				className={`
-					min-h-screen flex items-center justify-center
-					${isDarkMode ? "bg-bg-dark" : "bg-bg-light"}
-				`}
+			<PageBackground
+				isDarkMode={isDarkMode}
+				className={`min-h-screen flex items-center justify-center`}
 			>
 				<div className="max-w-2xl mx-auto text-center p-8 animate-scale-in">
 					<div
@@ -321,14 +320,15 @@ export default function CollectorZone() {
 						</button>
 					</div>
 				</div>
-			</div>
+			</PageBackground>
 		);
 	}
 
 	return (
-		<div
-			className={`scroll-smooth min-h-screen flex flex-col ${
-				isDarkMode ? "bg-bg-dark text-text-primary-dark" : "bg-bg-light text-text-primary-light"
+		<PageBackground
+			isDarkMode={isDarkMode}
+			className={`scroll-smooth min-h-screen flex flex-col relative ${
+				isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"
 			}`}
 		>
 			<Header isDarkMode={isDarkMode} toggleTheme={toggleTheme} />
@@ -895,6 +895,6 @@ export default function CollectorZone() {
 			</div>
 
 			<Footer isDarkMode={isDarkMode} />
-		</div>
+		</PageBackground>
 	);
 }

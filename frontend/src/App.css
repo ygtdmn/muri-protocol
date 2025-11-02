@@ -132,7 +132,7 @@ body {
 }
 
 .status-error {
-	@apply bg-error;
+	@apply bg-danger;
 }
 
 .status-warning {
@@ -162,7 +162,7 @@ body {
 }
 
 .error-text {
-	@apply text-sm text-error mt-2;
+	@apply text-sm text-danger mt-2;
 }
 
 /* Navigation tabs */

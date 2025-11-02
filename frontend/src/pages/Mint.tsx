@@ -6,7 +6,7 @@ import { decodeEventLog } from "viem";
 import { wayfinderExtensionAbi } from "../abis/wayfinder-manifold-extension-abi";
 import fastlz from "../lib/fastlz";
 import { sha256 } from "js-sha256";
-import { Upload, Link2, Sparkles, ChevronDown, User, Info, Cloud } from "lucide-react";
+import { Upload, Link2, Sparkles, ChevronDown, User } from "lucide-react";
 import {
 	isFileSupported,
 	getUnsupportedFileMessage,
@@ -20,6 +20,7 @@ import FilePreview from "../components/FilePreview";
 import Header from "../components/Header";
 import { useTheme } from "../hooks/useTheme";
 import Footer from "../components/Footer";
+import PageBackground from "../components/PageBackground";
 
 type PermissionPreset = 'collaborative' | 'full' | 'frozen';
 
@@ -39,12 +40,12 @@ export default function Mint() {
 	const [name, setName] = useState("");
 	const [backupUrls, setBackupUrls] = useState("");
 	const [recipient, setRecipient] = useState("");
+	const [amount, setAmount] = useState("1");
 	const [permissionPreset, setPermissionPreset] = useState<PermissionPreset>('collaborative');
 
 	// === ADVANCED (HIDDEN) ===
 	const [showAdvanced, setShowAdvanced] = useState(false);
 	const [description, setDescription] = useState("");
-	const [externalUrl, setExternalUrl] = useState("");
 	const [attributes, setAttributes] = useState<{ trait_type: string; value: string }[]>([]);
 	
 	// Display & thumbnail options
@@ -64,6 +65,11 @@ export default function Mint() {
 	const [isPinning, setIsPinning] = useState(false);
 	const [pinnedCid, setPinnedCid] = useState<string>("");
 	const [pinningError, setPinningError] = useState<string>("");
+	
+	// HTML Template
+	const [htmlTemplateFile, setHtmlTemplateFile] = useState<File | null>(null);
+	const [htmlTemplateContent, setHtmlTemplateContent] = useState<string>("");
+	const [htmlTemplateChunks, setHtmlTemplateChunks] = useState<string[]>([]);
 	
 	// Fine-grained permissions (only visible in advanced)
 	const [useCustomPermissions, setUseCustomPermissions] = useState(false);
@@ -134,7 +140,7 @@ export default function Mint() {
 
 	const prepareThumbnail = useCallback(async (file: File) => {
 		const fileSizeKB = file.size / 1024;
-		const MAX_SIZE_KB = 120;
+		const MAX_SIZE_KB = 60;
 
 		if (fileSizeKB > MAX_SIZE_KB) {
 			alert(
@@ -167,6 +173,26 @@ export default function Mint() {
 			);
 		}
 		setThumbChunks(chunks);
+	}, []);
+
+	const prepareHtmlTemplate = useCallback(async (file: File) => {
+		setHtmlTemplateFile(file);
+
+		// Read file content
+		const reader = new FileReader();
+		reader.onload = (e) => {
+			const content = e.target?.result as string;
+			setHtmlTemplateContent(content);
+
+			// For HTML templates, we store them as string chunks (not compressed)
+			const CHUNK_SIZE = 20 * 1024; // 20KB per chunk for text
+			const chunks: string[] = [];
+			for (let i = 0; i < content.length; i += CHUNK_SIZE) {
+				chunks.push(content.slice(i, i + CHUNK_SIZE));
+			}
+			setHtmlTemplateChunks(chunks);
+		};
+		reader.readAsText(file);
 	}, []);
 
 	const handleX402Pinning = useCallback(async () => {
@@ -245,7 +271,6 @@ export default function Mint() {
 		const fields: string[] = [];
 		if (name) fields.push(`"name":${JSON.stringify(name)}`);
 		if (description) fields.push(`"description":${JSON.stringify(description)}`);
-		if (externalUrl) fields.push(`"external_url":${JSON.stringify(externalUrl)}`);
 		if (attributes.length > 0) {
 			const validAttrs = attributes
 				.filter((a) => a.trait_type && a.value !== "")
@@ -255,7 +280,7 @@ export default function Mint() {
 			}
 		}
 		return fields.join(",");
-	}, [name, description, externalUrl, attributes]);
+	}, [name, description, attributes]);
 
 	const initConfig = useMemo(
 		() => ({
@@ -284,9 +309,9 @@ export default function Mint() {
 			},
 			displayMode,
 			permissions: { flags: permissionsFlags },
-			htmlTemplate: { chunks: [] as readonly Address[], zipped: false },
+			htmlTemplate: { chunks: htmlTemplateChunks as readonly Address[], zipped: false },
 		}),
-		[metadataJson, backupUrlsArray, imageMimeType, imageHash, isAnimationUri, permissionsFlags, displayMode, useOffchainThumbnail, thumbnailUrlsArray, thumbMime]
+		[metadataJson, backupUrlsArray, imageMimeType, imageHash, isAnimationUri, permissionsFlags, displayMode, useOffchainThumbnail, thumbnailUrlsArray, thumbMime, htmlTemplateChunks]
 	);
 
 	const onSubmit = (e: React.FormEvent) => {
@@ -299,7 +324,7 @@ export default function Mint() {
 					abi: wayfinderExtensionAbi,
 					address: import.meta.env.VITE_WAYFINDER_EXTENSION_ADDRESS as Address,
 				functionName: "mintERC721",
-				args: [creator, recipientAddress, initConfig, thumbnailChunksToSend, []],
+				args: [creator, recipientAddress, initConfig, thumbnailChunksToSend, htmlTemplateChunks],
 					value: 0n,
 				});
 			} else {
@@ -307,7 +332,7 @@ export default function Mint() {
 					abi: wayfinderExtensionAbi,
 					address: import.meta.env.VITE_WAYFINDER_EXTENSION_ADDRESS as Address,
 				functionName: "mintERC1155",
-				args: [creator, [recipientAddress], [BigInt(1)], initConfig, thumbnailChunksToSend, []],
+				args: [creator, [recipientAddress], [BigInt(amount || 1)], initConfig, thumbnailChunksToSend, htmlTemplateChunks],
 					value: 0n,
 				});
 			}
@@ -319,7 +344,10 @@ export default function Mint() {
 		const manifoldLink = mintedTokenId ? `https://gallery.manifold.xyz/${network}/${creator}/${mintedTokenId}` : null;
 
 		return (
-			<div className={`min-h-screen flex items-center justify-center p-4 ${isDarkMode ? "bg-bg-dark" : "bg-bg-light"}`}>
+			<PageBackground 
+				isDarkMode={isDarkMode}
+				className={`min-h-screen flex items-center justify-center p-4 relative`}
+			>
 				<div className="max-w-2xl w-full text-center animate-scale-in">
 					<div className={`inline-flex items-center justify-center w-24 h-24 rounded-full mb-8 ${
 						isDarkMode ? "bg-success-dark-subtle" : "bg-success-subtle"
@@ -342,7 +370,9 @@ export default function Mint() {
 							href={manifoldLink}
 							target="_blank"
 							rel="noopener noreferrer"
-							className="inline-block px-10 py-5 rounded-2xl bg-gradient-to-r from-primary to-secondary hover:from-primary-hover hover:to-secondary-hover text-white font-bold text-lg shadow-strong transition-all duration-200 mb-8"
+							className={`inline-block px-10 py-5 rounded-2xl text-white font-bold text-lg shadow-strong transition-all duration-200 mb-8 ${
+								isDarkMode ? "bg-primary-dark hover:bg-primary-dark-hover" : "bg-primary hover:bg-primary-hover"
+							}`}
 						>
 							View on Manifold Gallery →
 						</a>
@@ -367,13 +397,16 @@ export default function Mint() {
 					</button>
 					</div>
 				</div>
-			</div>
+			</PageBackground>
 		);
 	}
 
 	// === MAIN FORM ===
 	return (
-		<div className={`min-h-screen flex flex-col ${isDarkMode ? "bg-bg-dark" : "bg-bg-light"}`}>
+		<PageBackground 
+			isDarkMode={isDarkMode}
+			className={`min-h-screen flex flex-col relative`}
+		>
 			<Header isDarkMode={isDarkMode} toggleTheme={toggleTheme} />
 
 			<div className="flex-grow py-8 md:py-12">
@@ -392,8 +425,8 @@ export default function Mint() {
 					<div className={`p-8 md:p-10 rounded-3xl border-2 ${
 						artworkFile
 							? isDarkMode
-								? "bg-gradient-to-br from-primary-dark-subtle to-secondary-dark-subtle border-primary-dark"
-								: "bg-gradient-to-br from-primary-subtle to-secondary-subtle border-primary"
+								? "bg-primary-dark-subtle border-primary-dark"
+								: "bg-primary-subtle border-primary"
 							: isDarkMode
 							? "bg-surface-dark border-border-dark hover:border-border-hover-dark"
 							: "bg-surface-light border-border-light hover:border-border-hover-light shadow-soft hover:shadow-medium"
@@ -438,7 +471,7 @@ export default function Mint() {
 								<div className="space-y-4">
 									<FilePreview file={artworkFile} previewUrl={artworkPreview} maxHeight="max-h-64" />
 									<p className="text-lg font-bold text-success dark:text-success-dark">
-										✓ Ready to protect
+										✓ Ready
 									</p>
 								</div>
 							) : (
@@ -461,9 +494,9 @@ export default function Mint() {
 					}`}>
 						<div className="flex items-center gap-4 mb-8">
 							<div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
-								isDarkMode ? "bg-secondary-dark-subtle" : "bg-secondary-subtle"
+								isDarkMode ? "bg-primary-dark-subtle" : "bg-primary-subtle"
 							}`}>
-								<Link2 className={`w-6 h-6 ${isDarkMode ? "text-secondary-dark" : "text-secondary"}`} />
+								<Link2 className={`w-6 h-6 ${isDarkMode ? "text-primary-dark" : "text-primary"}`} />
 							</div>
 							<div>
 								<h2 className={`text-2xl font-bold ${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}`}>
@@ -484,7 +517,7 @@ export default function Mint() {
 								<input
 									className={`w-full px-5 py-4 rounded-xl text-lg border-2 transition-all ${
 										isDarkMode
-											? "bg-surface-hover-dark border-border-dark text-text-primary-dark placeholder:text-text-tertiary-dark focus:border-primary-dark focus:bg-bg-dark"
+											? "bg-surface-hover-dark border-border-dark text-text-primary-dark placeholder:text-text-tertiary-dark focus:border-primary-dark focus:bg-surface-dark"
 											: "bg-white border-border-light text-text-primary-light placeholder:text-text-tertiary-light focus:border-primary"
 									} focus:outline-none focus:ring-4 focus:ring-primary/10`}
 									placeholder="My Amazing Artwork"
@@ -494,144 +527,57 @@ export default function Mint() {
 								/>
 							</div>
 
-							{/* Description & External Link - Collapsed Panel */}
-							<details className={`p-5 rounded-xl border ${isDarkMode ? "bg-surface-dark border-border-dark" : "bg-white border-border-light"}`}>
-								<summary className={`cursor-pointer font-semibold ${isDarkMode ? "text-text-primary-dark hover:text-text-secondary-dark" : "text-text-primary-light hover:text-text-secondary-light"} transition-colors`}>
-									<span className="inline-flex items-center gap-2">
-										<ChevronDown className="w-4 h-4 inline" />
-										Add description & link (optional)
-									</span>
-								</summary>
-								<div className="mt-4 space-y-4">
+							{/* Description - Optional */}
 							<div>
-										<label className={`block text-sm font-semibold mb-2 ${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}`}>
-											Description
-										</label>
+								<label className={`block text-sm font-semibold mb-2 ${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}`}>
+									Description (optional)
+								</label>
 								<textarea
-									rows={4}
-											className={`w-full px-4 py-3 rounded-lg border ${isDarkMode ? "bg-surface-hover-dark border-border-dark text-text-primary-dark" : "bg-surface-light border-border-light text-text-primary-light"} focus:outline-none focus:ring-2 focus:ring-primary`}
+									rows={3}
+									className={`w-full px-4 py-3 rounded-lg border ${isDarkMode ? "bg-surface-hover-dark border-border-dark text-text-primary-dark placeholder:text-text-tertiary-dark" : "bg-white border-border-light text-text-primary-light placeholder:text-text-tertiary-light"} focus:outline-none focus:ring-2 focus:ring-primary`}
 									placeholder="Tell the story behind your artwork..."
 									value={description}
 									onChange={(e) => setDescription(e.target.value)}
 								/>
 							</div>
 
-							<div>
-										<label className={`block text-sm font-semibold mb-2 ${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}`}>
-											External Link
-										</label>
-								<input
-											className={`w-full px-4 py-3 rounded-lg border ${isDarkMode ? "bg-surface-hover-dark border-border-dark text-text-primary-dark" : "bg-surface-light border-border-light text-text-primary-light"} focus:outline-none focus:ring-2 focus:ring-primary`}
-									placeholder="https://yourwebsite.com"
-									value={externalUrl}
-									onChange={(e) => setExternalUrl(e.target.value)}
-								/>
-							</div>
-						</div>
-							</details>
-
 							{/* Backup URLs */}
 						<div>
 								<label className={`block text-lg font-bold mb-2 ${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}`}>
 									Backup Locations
 								</label>
-								<p className={`text-sm mb-3 leading-relaxed ${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}`}>
-									Upload your file to multiple places, paste the links here (one per line).
-									<br />
-									<strong>More backups = better protection!</strong> If one fails, we'll use another.
+								<p className={`text-sm mb-4 leading-relaxed ${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}`}>
+									Upload your file to multiple places. <strong>More backups = better protection!</strong>
 								</p>
-							<textarea
-									rows={5}
-									className={`w-full px-5 py-4 rounded-xl font-mono text-sm border-2 transition-all ${
-										isDarkMode
-											? "bg-surface-hover-dark border-border-dark text-text-primary-dark placeholder:text-text-tertiary-dark focus:border-secondary-dark focus:bg-bg-dark"
-											: "bg-white border-border-light text-text-primary-light placeholder:text-text-tertiary-light focus:border-secondary"
-									} focus:outline-none focus:ring-4 focus:ring-secondary/10`}
-									placeholder={"ipfs://QmYourFileHash\nhttps://arweave.net/your-id\nhttps://your-server.com/file.png"}
-									value={backupUrls}
-									onChange={(e) => setBackupUrls(e.target.value)}
-								required
-							/>
-								
-								{/* Quick Upload Links */}
-								<div className={`mt-4 p-5 rounded-xl ${isDarkMode ? "bg-surface-hover-dark" : "bg-surface-hover-light"}`}>
-									<div className="flex items-start gap-3 mb-3">
-										<Info className={`w-5 h-5 mt-0.5 ${isDarkMode ? "text-primary-dark" : "text-primary"}`} />
-										<div>
-											<p className={`font-semibold mb-1 ${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}`}>
-												Where to upload?
-											</p>
-											<p className={`text-sm ${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}`}>
-												Upload to 2-3 of these for good protection:
-											</p>
-											</div>
-											</div>
-									<div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-										{[
-											{ name: "Web3.Storage", url: "https://web3.storage", free: true },
-											{ name: "ArDrive", url: "https://ardrive.net", free: false },
-											{ name: "Archive.org", url: "https://archive.org/create", free: true },
-											{ name: "GitHub", url: "https://github.com", free: true },
-											{ name: "Cloudflare R2", url: "https://developers.cloudflare.com/r2/", free: true },
-										].map((service) => (
-											<a
-												key={service.name}
-												href={service.url}
-										target="_blank"
-										rel="noopener noreferrer"
-												className={`px-3 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-between ${
-											isDarkMode
-														? "bg-surface-dark hover:bg-surface-hover-dark text-text-primary-dark border border-border-dark"
-														: "bg-white hover:bg-surface-hover-light text-text-primary-light border border-border-light"
-												}`}
-											>
-												<span>{service.name}</span>
-												<span className={`text-xs font-bold ${service.free ? "text-success dark:text-success-dark" : "text-warning dark:text-warning-dark"}`}>
-													{service.free ? "FREE" : "PAID"}
-										</span>
-									</a>
-										))}
-											</div>
-						</div>
-								
-								{/* x402 IPFS Auto-Pinning */}
-								<div className={`mt-6 p-6 rounded-xl border-2 ${
+
+								{/* x402 IPFS Pinning */}
+								<div className={`mb-4 p-5 rounded-xl border-2 ${
 									enableX402Pinning 
-										? isDarkMode ? "bg-secondary-dark-subtle border-secondary-dark" : "bg-secondary-subtle border-secondary"
+										? isDarkMode ? "bg-primary-dark-subtle border-primary-dark" : "bg-primary-subtle border-primary"
 										: isDarkMode ? "bg-surface-dark border-border-dark" : "bg-white border-border-light"
 								}`}>
-									<div className="flex items-start gap-3 mb-4">
-										<Cloud className={`w-6 h-6 mt-1 ${
-											enableX402Pinning
-												? isDarkMode ? "text-secondary-dark" : "text-secondary"
-												: isDarkMode ? "text-text-tertiary-dark" : "text-text-tertiary-light"
-										}`} />
+									<label className="flex items-start gap-3 cursor-pointer">
+										<input
+											type="checkbox"
+											checked={enableX402Pinning}
+											onChange={(e) => {
+												setEnableX402Pinning(e.target.checked);
+												if (!e.target.checked) {
+													setPinnedCid("");
+													setPinningError("");
+												}
+											}}
+											className="w-5 h-5 mt-0.5"
+										/>
 										<div className="flex-1">
-											<label className="flex items-center gap-3 cursor-pointer">
-												<input
-													type="checkbox"
-													checked={enableX402Pinning}
-													onChange={(e) => {
-														setEnableX402Pinning(e.target.checked);
-														if (!e.target.checked) {
-															setPinnedCid("");
-															setPinningError("");
-														}
-													}}
-													className="w-5 h-5"
-												/>
-												<div>
-													<p className={`font-bold ${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}`}>
-														🚀 Auto-pin to IPFS (Pinata x402)
-													</p>
-													<p className={`text-sm ${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}`}>
-														Pay to pin your file to IPFS for 12 months via x402 protocol
-														{artworkFile && ` • Est. ${estimatePinningCost(artworkFile.size)} USDC`}
-													</p>
-												</div>
-											</label>
+											<p className={`font-bold mb-1 ${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}`}>
+												Upload to IPFS via Pinata x402
+											</p>
+											<p className={`text-sm ${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}`}>
+												Pay to pin for 12 months{artworkFile && ` • Est. ${estimatePinningCost(artworkFile.size)} USDC on Base`}
+											</p>
 										</div>
-									</div>
+									</label>
 
 									{enableX402Pinning && (
 										<div className="mt-4 space-y-3">
@@ -643,22 +589,21 @@ export default function Mint() {
 													className={`w-full px-5 py-3 rounded-xl font-bold transition-all ${
 														!artworkFile || !walletClient
 															? "opacity-50 cursor-not-allowed bg-surface-hover-light dark:bg-surface-hover-dark"
-															: "bg-gradient-to-r from-secondary to-primary hover:from-secondary-hover hover:to-primary-hover text-white shadow-soft hover:shadow-medium hover:scale-[1.02]"
+															: isDarkMode 
+																? "bg-primary-dark hover:bg-primary-dark-hover text-white shadow-soft hover:shadow-medium"
+																: "bg-primary hover:bg-primary-hover text-white shadow-soft hover:shadow-medium"
 													}`}
 												>
-													<span className="flex items-center justify-center gap-2">
-														<Cloud className="w-5 h-5" />
-														Pin to IPFS Now
-													</span>
+													Pin to IPFS Now
 												</button>
 											)}
 
 											{isPinning && (
 												<div className={`p-4 rounded-lg ${isDarkMode ? "bg-surface-hover-dark" : "bg-surface-hover-light"}`}>
 													<div className="flex items-center gap-3">
-														<div className="animate-spin rounded-full h-5 w-5 border-b-2 border-secondary dark:border-secondary-dark"></div>
+														<div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary dark:border-primary-dark"></div>
 														<p className={`text-sm font-semibold ${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}`}>
-															Waiting for payment approval and pinning...
+															Waiting for payment approval...
 														</p>
 													</div>
 												</div>
@@ -670,10 +615,7 @@ export default function Mint() {
 														✓ Pinned successfully!
 													</p>
 													<p className={`text-xs font-mono break-all ${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}`}>
-														CID: {pinnedCid}
-													</p>
-													<p className={`text-xs mt-2 ${isDarkMode ? "text-text-tertiary-dark" : "text-text-tertiary-light"}`}>
-														IPFS URL has been added to backup locations
+														{pinnedCid}
 													</p>
 												</div>
 											)}
@@ -689,34 +631,72 @@ export default function Mint() {
 													<button
 														type="button"
 														onClick={handleX402Pinning}
-														className={`mt-3 text-sm font-semibold ${isDarkMode ? "text-secondary-dark hover:underline" : "text-secondary hover:underline"}`}
+														className={`mt-3 text-sm font-semibold ${isDarkMode ? "text-primary-dark hover:underline" : "text-primary hover:underline"}`}
 													>
 														Try again
 													</button>
 												</div>
 											)}
-
-											<div className={`text-xs ${isDarkMode ? "text-text-tertiary-dark" : "text-text-tertiary-light"}`}>
-												<p className="flex items-start gap-2">
-													<span>ℹ️</span>
-													<span>Uses x402 protocol for instant, frictionless payments. Your wallet will prompt you to approve the payment in USDC on Base.</span>
-												</p>
-											</div>
 										</div>
 									)}
+								</div>
+
+								{/* x402 Arweave Pinning - Placeholder */}
+								<div className={`mb-4 p-5 rounded-xl border-2 opacity-50 ${
+									isDarkMode ? "bg-surface-dark border-border-dark" : "bg-white border-border-light"
+								}`}>
+									<label className="flex items-start gap-3">
+										<input
+											type="checkbox"
+											disabled
+											className="w-5 h-5 mt-0.5"
+										/>
+										<div className="flex-1">
+											<p className={`font-bold mb-1 ${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}`}>
+												Upload to Arweave via ar.io x402
+											</p>
+											<p className={`text-sm ${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}`}>
+												Coming soon - permanent storage via x402 protocol
+											</p>
+										</div>
+									</label>
+								</div>
+
+								{/* Manual Backup URLs */}
+								<div>
+									<label className={`block text-sm font-semibold mb-2 ${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}`}>
+										More Backup Locations (one per line)
+									</label>
+									<textarea
+										rows={4}
+										className={`w-full px-4 py-3 rounded-lg font-mono text-sm border ${
+											isDarkMode
+												? "bg-surface-hover-dark border-border-dark text-text-primary-dark placeholder:text-text-tertiary-dark"
+												: "bg-white border-border-light text-text-primary-light placeholder:text-text-tertiary-light"
+										} focus:outline-none focus:ring-2 focus:ring-secondary`}
+										placeholder={"https://archive.org/file.png\nhttps://github.com/file.png\nhttps://your-server.com/file.png"}
+										value={backupUrls}
+										onChange={(e) => setBackupUrls(e.target.value)}
+										required={!pinnedCid}
+									/>
 								</div>
 					</div>
 
 							{/* Permission Presets */}
 							<div>
-								<label className={`block text-lg font-bold mb-3 ${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}`}>
-									Who can update this artwork?
-								</label>
+								<div className="mb-4">
+									<label className={`block text-lg font-bold mb-2 ${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}`}>
+										Who can update this artwork?
+									</label>
+									<p className={`text-sm ${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}`}>
+										You can always remove permissions later, but you can't add them back
+									</p>
+								</div>
 								<div className="grid gap-4">
 									{[
 										{ id: 'collaborative' as PermissionPreset, name: 'Collaborative', emoji: '🤝', desc: 'You control it, collectors can add backup links (recommended for preservation)' },
 										{ id: 'full' as PermissionPreset, name: 'Artist Only', emoji: '🎨', desc: 'Only you can make any changes' },
-										{ id: 'frozen' as PermissionPreset, name: 'Frozen Forever', emoji: '❄️', desc: 'Nobody can change it (maximum decentralization)' },
+										{ id: 'frozen' as PermissionPreset, name: 'Immutable', emoji: '❄️', desc: 'Nobody can change it (not recommended)' },
 									].map((preset) => (
 										<label
 											key={preset.id}
@@ -758,25 +738,26 @@ export default function Mint() {
 					}`}>
 						<div className="flex items-center gap-4 mb-6">
 							<div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
-								isDarkMode ? "bg-success-dark-subtle" : "bg-success-subtle"
+								isDarkMode ? "bg-primary-dark-subtle" : "bg-primary-subtle"
 							}`}>
-								<User className={`w-6 h-6 ${isDarkMode ? "text-success-dark" : "text-success"}`} />
+								<User className={`w-6 h-6 ${isDarkMode ? "text-primary-dark" : "text-primary"}`} />
 											</div>
 										<div>
 								<h2 className={`text-2xl font-bold ${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}`}>
 									Who Gets It?
 								</h2>
 								<p className={`text-sm ${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}`}>
-									Leave blank to mint to yourself
+									{type === "ERC1155" ? "Leave blank to mint to yourself" : "Leave blank to mint to yourself"}
 								</p>
 								</div>
 							</div>
 
-						<div className="flex gap-3">
+						<div className="space-y-4">
+							<div className="flex gap-3">
 										<input
 								className={`flex-1 px-5 py-4 rounded-xl font-mono text-sm border-2 transition-all ${
 									isDarkMode
-										? "bg-surface-hover-dark border-border-dark text-text-primary-dark placeholder:text-text-tertiary-dark focus:border-success-dark focus:bg-bg-dark"
+										? "bg-surface-hover-dark border-border-dark text-text-primary-dark placeholder:text-text-tertiary-dark focus:border-success-dark focus:bg-surface-dark"
 										: "bg-white border-border-light text-text-primary-light placeholder:text-text-tertiary-light focus:border-success"
 								} focus:outline-none focus:ring-4 focus:ring-success/10`}
 								placeholder={connectedAddress || "0x..."}
@@ -792,6 +773,30 @@ export default function Mint() {
 									→ Me
 								</button>
 													)}
+										</div>
+							
+							{type === "ERC1155" && (
+								<div>
+									<label className={`block text-sm font-semibold mb-2 ${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}`}>
+										Amount to mint
+									</label>
+									<input
+										type="number"
+										min="1"
+										className={`w-full px-5 py-4 rounded-xl text-sm border-2 transition-all ${
+											isDarkMode
+												? "bg-surface-hover-dark border-border-dark text-text-primary-dark placeholder:text-text-tertiary-dark focus:border-success-dark focus:bg-surface-dark"
+												: "bg-white border-border-light text-text-primary-light placeholder:text-text-tertiary-light focus:border-success"
+										} focus:outline-none focus:ring-4 focus:ring-success/10`}
+										placeholder="1"
+										value={amount}
+										onChange={(e) => setAmount(e.target.value)}
+									/>
+									<p className={`text-xs mt-1 ${isDarkMode ? "text-text-tertiary-dark" : "text-text-tertiary-light"}`}>
+										Number of editions to mint
+									</p>
+								</div>
+							)}
 										</div>
 											</div>
 
@@ -921,7 +926,7 @@ export default function Mint() {
 												On-Chain
 											</p>
 											<p className={`text-sm ${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}`}>
-												Store on blockchain (max 120KB, higher gas cost)
+												Store on blockchain (max 60KB, higher gas cost)
 											</p>
 										</div>
 									</label>
@@ -996,7 +1001,7 @@ export default function Mint() {
 														Drop thumbnail or click to browse
 													</p>
 													<p className={`text-xs mt-1 ${isDarkMode ? "text-text-tertiary-dark" : "text-text-tertiary-light"}`}>
-														Image files only • Max 120KB
+														Image files only • Max 60KB
 									</p>
 								</div>
 							)}
@@ -1022,6 +1027,60 @@ export default function Mint() {
 											</div>
 										)}
 					</div>
+
+							{/* Custom HTML Template */}
+							<div className="space-y-4">
+								<h4 className={`text-lg font-bold ${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}`}>
+									Custom HTML Template
+								</h4>
+								<p className={`text-sm ${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}`}>
+									Upload a custom HTML template for Smart HTML mode. Use {"{"}{"{"}{"}"}FILE_URIS{"}"}{"{"}{"}"} and {"{"}{"{"}{"}"}FILE_HASH{"}"}{"{"}{"}"} placeholders.
+								</p>
+								<div
+									className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all ${
+										isDarkMode
+											? "border-border-dark hover:border-primary-dark hover:bg-surface-hover-dark"
+											: "border-border-light hover:border-primary hover:bg-surface-hover-light"
+									} ${htmlTemplateFile ? "border-solid border-success dark:border-success-dark" : ""}`}
+									onClick={() => {
+										const input = document.createElement("input");
+										input.type = "file";
+										input.accept = ".html,.htm";
+										input.onchange = () => {
+											const file = input.files?.[0];
+											if (file && (file.type === "text/html" || file.name.endsWith(".html"))) {
+												prepareHtmlTemplate(file);
+											} else if (file) {
+												alert("Please upload an HTML file");
+											}
+										};
+										input.click();
+									}}
+								>
+									{htmlTemplateFile ? (
+										<div className="space-y-3">
+											<div className={`p-4 rounded-lg ${isDarkMode ? "bg-surface-dark border border-border-dark" : "bg-surface-light border border-border-light"}`}>
+												<p className={`text-sm font-medium mb-2 ${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}`}>
+													{htmlTemplateFile.name}
+												</p>
+												<p className={`text-xs ${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}`}>
+													{htmlTemplateChunks.length} chunks • {htmlTemplateContent.length} characters
+												</p>
+											</div>
+										</div>
+									) : (
+										<div>
+											<Upload className={`w-10 h-10 mx-auto mb-2 ${isDarkMode ? "text-text-tertiary-dark" : "text-text-tertiary-light"}`} />
+											<p className={`text-sm font-semibold ${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}`}>
+												Drop HTML template or click to browse
+											</p>
+											<p className={`text-xs mt-1 ${isDarkMode ? "text-text-tertiary-dark" : "text-text-tertiary-light"}`}>
+												Optional - defaults to standard template
+											</p>
+										</div>
+									)}
+								</div>
+							</div>
 
 							{/* Custom Permissions */}
 							<div className="space-y-4">
@@ -1093,14 +1152,16 @@ export default function Mint() {
 					</details>
 
 					{/* SUBMIT - BIG & BOLD */}
-					<div className="pt-6">
+					<div className="pt-1">
 						<button
 							type="submit"
 							disabled={!name || !artworkFile || backupUrlsArray.length === 0 || isPending || isConfirming}
 							className={`w-full px-8 py-6 rounded-2xl font-bold text-xl transition-all duration-300 ${
 								!name || !artworkFile || backupUrlsArray.length === 0 || isPending || isConfirming
 									? "opacity-50 cursor-not-allowed bg-surface-hover-light dark:bg-surface-hover-dark text-text-tertiary-light dark:text-text-tertiary-dark"
-									: "bg-gradient-to-r from-primary to-secondary hover:from-primary-hover hover:to-secondary-hover text-white shadow-strong hover:shadow-[0_8px_40px_rgba(59,130,246,0.4)] hover:scale-[1.02]"
+									: isDarkMode
+										? "bg-primary-dark hover:bg-primary-dark-hover text-white shadow-strong hover:scale-[1.02]"
+										: "bg-primary hover:bg-primary-hover text-white shadow-strong hover:scale-[1.02]"
 							}`}
 						>
 							{isPending || isConfirming ? (
@@ -1111,40 +1172,11 @@ export default function Mint() {
 							) : (
 								<span className="flex items-center justify-center gap-3">
 									<Sparkles className="w-6 h-6" />
-									Mint Protected NFT
+									Mint
 								</span>
 							)}
 						</button>
-
-						<button
-							type="button"
-							onClick={() => navigate("/collections")}
-							className={`w-full mt-3 px-6 py-3 rounded-xl font-semibold transition-all ${
-								isDarkMode
-									? "text-text-secondary-dark hover:text-text-primary-dark hover:bg-surface-hover-dark"
-									: "text-text-secondary-light hover:text-text-primary-light hover:bg-surface-hover-light"
-							}`}
-						>
-							Cancel
-						</button>
 						</div>
-
-					{/* Helpful Info Box */}
-					<div className={`p-6 rounded-2xl ${isDarkMode ? "bg-info-dark-subtle/30 border border-info-dark/20" : "bg-info-subtle border border-info/20"}`}>
-						<div className="flex items-start gap-3">
-							<Info className={`w-5 h-5 mt-0.5 flex-shrink-0 ${isDarkMode ? "text-info-dark" : "text-info"}`} />
-							<div className="text-sm leading-relaxed">
-								<p className={`font-semibold mb-1 ${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}`}>
-									What happens after minting?
-								</p>
-								<p className={isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}>
-									Your NFT will automatically try each backup URL in order until one works.
-									If collectors have permission, they can add even more backup links to help preserve your work.
-									It's like having a community helping keep your art alive forever.
-								</p>
-							</div>
-						</div>
-					</div>
 
 					{/* Errors */}
 					{writeError && (
@@ -1164,7 +1196,7 @@ export default function Mint() {
 			</div>
 
 			<Footer isDarkMode={isDarkMode} />
-		</div>
+		</PageBackground>
 	);
 }
 

@@ -19,6 +19,7 @@ import type { Attribute } from "../types/metadata";
 import Header from "../components/Header";
 import { useTheme } from "../hooks/useTheme";
 import Footer from "../components/Footer";
+import PageBackground from "../components/PageBackground";
 
 export default function Update() {
 	const [sp] = useSearchParams();
@@ -31,7 +32,6 @@ export default function Update() {
 	// Metadata
 	const [name, setName] = useState("");
 	const [description, setDescription] = useState("");
-	const [externalUrl, setExternalUrl] = useState("");
 	const [attributes, setAttributes] = useState<Attribute[]>([]);
 
 	// Thumbnail (on-chain)
@@ -297,8 +297,6 @@ export default function Update() {
 		if (name) fields.push(`"name":${JSON.stringify(name)}`);
 		if (description)
 			fields.push(`"description":${JSON.stringify(description)}`);
-		if (externalUrl)
-			fields.push(`"external_url":${JSON.stringify(externalUrl)}`);
 		if (attributes.length > 0) {
 			const validAttrs = attributes
 				.filter((a) => a.trait_type && a.value !== "")
@@ -317,7 +315,7 @@ export default function Update() {
 			}
 		}
 		return fields.join(",");
-	}, [name, description, externalUrl, attributes]);
+	}, [name, description, attributes]);
 
 	// Simulate contract calls for error checking
 	const { error: simulateMetadataError } = useSimulateContract({
@@ -650,11 +648,9 @@ export default function Update() {
 
 	if (isSuccess) {
 		return (
-			<div
-				className={`
-					min-h-screen flex items-center justify-center
-					${isDarkMode ? "bg-bg-dark" : "bg-bg-light"}
-				`}
+			<PageBackground
+				isDarkMode={isDarkMode}
+				className={`min-h-screen flex items-center justify-center`}
 			>
 				<div className="max-w-2xl mx-auto text-center p-8 animate-scale-in">
 					<div
@@ -724,19 +720,20 @@ export default function Update() {
 								shadow-soft hover:shadow-medium
 								transition-all duration-200
 							`}
-						>
-							Update Another
-						</button>
-					</div>
+					>
+						Update Another
+					</button>
 				</div>
 			</div>
+			</PageBackground>
 		);
 	}
 
 	return (
-		<div
-			className={`scroll-smooth min-h-screen flex flex-col ${
-				isDarkMode ? "bg-bg-dark text-text-primary-dark" : "bg-bg-light text-text-primary-light"
+		<PageBackground
+			isDarkMode={isDarkMode}
+			className={`scroll-smooth min-h-screen flex flex-col relative ${
+				isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"
 			}`}
 		>
 			<Header isDarkMode={isDarkMode} toggleTheme={toggleTheme} />
@@ -923,22 +920,13 @@ export default function Update() {
 													/>
 												</div>
 												<div>
-													<label className="label">New Description</label>
+													<label className="label">New Description (optional)</label>
 													<textarea
 														rows={4}
 														className="textarea-field"
 														placeholder="Updated description..."
 														value={description}
 														onChange={(e) => setDescription(e.target.value)}
-													/>
-												</div>
-												<div>
-													<label className="label">New External Link</label>
-													<input
-														className="input-field"
-														placeholder="https://updatedlink.com"
-														value={externalUrl}
-														onChange={(e) => setExternalUrl(e.target.value)}
 													/>
 												</div>
 											</div>
@@ -2155,6 +2143,6 @@ export default function Update() {
 			</div>
 
 			<Footer isDarkMode={isDarkMode} />
-		</div>
+		</PageBackground>
 	);
 }

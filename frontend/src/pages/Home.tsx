@@ -4,6 +4,7 @@ import { useState } from "react";
 import Header from "../components/Header";
 import { useTheme } from "../hooks/useTheme";
 import Footer from "../components/Footer";
+import PageBackground from "../components/PageBackground";
 
 export default function Home() {
 	const [openFaq, setOpenFaq] = useState<Record<string, boolean>>({
@@ -22,9 +23,10 @@ export default function Home() {
 		}));
 	};
 	return (
-		<div
-			className={`scroll-smooth min-h-screen flex flex-col ${
-				isDarkMode ? "bg-bg-dark text-text-primary-dark" : "bg-bg-light text-text-primary-light"
+		<PageBackground
+			isDarkMode={isDarkMode}
+			className={`scroll-smooth min-h-screen flex flex-col relative ${
+				isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"
 			}`}
 		>
 			<Header
@@ -38,11 +40,6 @@ export default function Home() {
 				<div className="max-w-6xl mx-auto px-4 md:px-6 lg:px-8">
 					{/* Hero */}
 					<div className="pt-16 pb-12 md:pt-24 md:pb-16 text-center relative">
-						{/* Decorative gradient blob */}
-						<div className={`absolute inset-0 overflow-hidden pointer-events-none ${isDarkMode ? "opacity-20" : "opacity-10"}`}>
-							<div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-primary to-secondary rounded-full blur-3xl transform translate-x-1/2 -translate-y-1/2" />
-							<div className="absolute bottom-0 left-0 w-96 h-96 bg-gradient-to-tr from-secondary to-primary rounded-full blur-3xl transform -translate-x-1/2 translate-y-1/2" />
-						</div>
 
 						<div className="max-w-4xl mx-auto relative z-10">
 							<h1
@@ -53,9 +50,9 @@ export default function Home() {
 									${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
 								`}
 							>
-								Keep Your Digital Art{" "}
-								<span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-									Alive Forever
+								Make Your Digital Art{" "}
+								<span className={isDarkMode ? "text-primary-dark" : "text-primary"}>
+									More Resilient
 								</span>
 							</h1>
 
@@ -67,13 +64,15 @@ export default function Home() {
 								`}
 							>
 								Store your NFTs across multiple platforms. If one fails, your art
-								automatically falls back to another. <strong>Simple, secure, forever.</strong>
+								automatically falls back to another. <strong>Simple, secure, resilient.</strong>
 							</p>
 
 							<div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
 								<Link
 									to="/collections"
-									className="group px-10 py-5 rounded-2xl text-lg font-bold bg-gradient-to-r from-primary to-secondary hover:from-primary-hover hover:to-secondary-hover text-white shadow-strong hover:shadow-[0_12px_48px_rgba(59,130,246,0.5)] transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-4 focus:ring-primary/30"
+									className={`group px-10 py-5 rounded-2xl text-lg font-bold text-white shadow-strong transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-4 focus:ring-primary/30 ${
+										isDarkMode ? "bg-primary-dark hover:bg-primary-dark-hover" : "bg-primary hover:bg-primary-hover"
+									}`}
 								>
 									<span className="flex items-center gap-2">
 										Get Started
@@ -96,39 +95,6 @@ export default function Home() {
 								>
 									Learn How It Works →
 								</a>
-							</div>
-
-							{/* Quick Stats */}
-							<div className={`mt-16 pt-8 border-t ${isDarkMode ? "border-border-dark" : "border-border-light"}`}>
-								<p className={`text-sm font-semibold mb-4 ${isDarkMode ? "text-text-tertiary-dark" : "text-text-tertiary-light"}`}>
-									Trusted by artists who care about longevity
-								</p>
-								<div className="flex justify-center gap-8 md:gap-16">
-									<div>
-										<p className={`text-3xl font-bold ${isDarkMode ? "text-primary-dark" : "text-primary"}`}>
-											Forever
-										</p>
-										<p className={`text-sm ${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}`}>
-											Your art, protected
-										</p>
-									</div>
-									<div>
-										<p className={`text-3xl font-bold ${isDarkMode ? "text-secondary-dark" : "text-secondary"}`}>
-											Multiple
-										</p>
-										<p className={`text-sm ${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}`}>
-											Backup locations
-										</p>
-									</div>
-									<div>
-										<p className={`text-3xl font-bold ${isDarkMode ? "text-success-dark" : "text-success"}`}>
-											Auto
-										</p>
-										<p className={`text-sm ${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}`}>
-											Failover protection
-										</p>
-									</div>
-								</div>
 							</div>
 						</div>
 					</div>
@@ -198,7 +164,7 @@ export default function Home() {
 										${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
 									`}
 								>
-									Upload your artwork and we'll calculate a secure hash to verify
+									Upload your artwork and Wayfinder will calculate a secure hash to verify
 									authenticity
 								</p>
 							</div>
@@ -246,7 +212,7 @@ export default function Home() {
 										${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
 									`}
 								>
-									Upload to IPFS, Arweave, or any storage. More backups mean more
+									Upload to IPFS, Arweave, or any storage provider. More backups mean more
 									resilience
 								</p>
 							</div>
@@ -461,7 +427,7 @@ export default function Home() {
 												${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
 											`}
 										>
-											In HTML mode, your NFT tries each link until one works. No
+											Thanks to Smart HTML mode, your NFT tries each link until one works. No
 											manual switching needed
 										</p>
 									</div>
@@ -502,8 +468,8 @@ export default function Home() {
 												${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
 											`}
 										>
-											Choose exactly what permissions artists and collectors have.
-											You're in control
+											Set fine-grained permissions for artists and collectors.
+											Take total control over who can do what
 										</p>
 									</div>
 								</div>
@@ -535,7 +501,7 @@ export default function Home() {
 												${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
 											`}
 										>
-											Built for Artists
+											Fully Open Source
 										</h3>
 										<p
 											className={`
@@ -543,8 +509,7 @@ export default function Home() {
 												${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
 											`}
 										>
-											Created by an artist who cares about digital art preservation
-											and longevity
+											Transparent, auditable code. Fork it, improve it, or run your own version
 										</p>
 									</div>
 								</div>
@@ -635,7 +600,7 @@ export default function Home() {
 								`}
 							>
 								<button
-									onClick={() => toggleFaq("why")}
+									onClick={() => toggleFaq("how")}
 									className={`
 										w-full px-6 py-4 flex items-center justify-between
 										transition-colors
@@ -660,10 +625,10 @@ export default function Home() {
 											${isDarkMode ? "text-text-tertiary-dark" : "text-text-tertiary-light"}
 										`}
 									>
-										{openFaq.why ? "−" : "+"}
+										{openFaq.how ? "−" : "+"}
 									</span>
 								</button>
-								{openFaq.why && (
+								{openFaq.how && (
 									<div
 										className={`
 											px-6 pb-4 pt-2
@@ -673,10 +638,10 @@ export default function Home() {
 										<p className="leading-relaxed">
 											Wayfinder stores your NFT metadata and a hash of your artwork
 											on-chain. You provide multiple URLs where your artwork lives
-											(IPFS, Arweave, etc.). In "HTML mode," we embed a smart
+											(IPFS, Arweave, etc.). In "Smart HTML" mode, we embed a smart
 											template that tries each URL in order until one loads. In
-											"Direct mode," you pick which URL to show, and can switch
-											manually if needed.
+											"Direct mode," you (or collectors, if allowed) can pick which 
+											URL to show and switch manually if needed.
 										</p>
 									</div>
 								)}
@@ -694,7 +659,7 @@ export default function Home() {
 								`}
 							>
 								<button
-									onClick={() => toggleFaq("how")}
+									onClick={() => toggleFaq("why")}
 									className={`
 										w-full px-6 py-4 flex items-center justify-between
 										transition-colors
@@ -719,10 +684,10 @@ export default function Home() {
 											${isDarkMode ? "text-text-tertiary-dark" : "text-text-tertiary-light"}
 										`}
 									>
-										{openFaq.how ? "−" : "+"}
+										{openFaq.why ? "−" : "+"}
 									</span>
 								</button>
-								{openFaq.how && (
+								{openFaq.why && (
 									<div
 										className={`
 											px-6 pb-4 pt-2
@@ -788,11 +753,12 @@ export default function Home() {
 										`}
 									>
 										<p className="leading-relaxed">
-											Any artist who cares about their digital art lasting beyond
-											today. If you're minting NFTs and want them to still work in
-											10, 20, or 100 years, Wayfinder helps by not putting all your
-											eggs in one basket. Works with Manifold Creator Cores (ERC721
-											and ERC1155).
+											Artists whose artwork is too large to store fully on-chain. While
+											fully on-chain minting is the most resilient approach, Wayfinder 
+											provides the next best option when that's not practical due to file 
+											size—offering better protection against link rot and platform failures 
+											by not putting all your eggs in one basket. Works with Manifold Creator 
+											Cores (ERC721 and ERC1155).
 										</p>
 									</div>
 								)}
@@ -800,22 +766,16 @@ export default function Home() {
 						</div>
 					</section>
 
-					{/* CTA Section - VIBRANT */}
-					<section className="py-16 text-center relative">
-						{/* Background glow */}
-						<div className={`absolute inset-0 overflow-hidden pointer-events-none ${isDarkMode ? "opacity-30" : "opacity-20"}`}>
-							<div className="absolute inset-0 bg-gradient-to-r from-primary via-secondary to-primary blur-3xl" />
-						</div>
-
-						<div className="max-w-4xl mx-auto relative z-10">
+					{/* CTA Section */}
+					<section className="py-16 text-center">
+						<div className="max-w-4xl mx-auto">
 							<div
 								className={`
 									p-12 md:p-16 rounded-3xl
-									backdrop-blur-sm
 									${
 										isDarkMode
-											? "bg-surface-dark/90 border-2 border-border-dark shadow-strong"
-											: "bg-surface-light/90 border-2 border-border-light shadow-strong"
+											? "bg-surface-dark border-2 border-border-dark shadow-strong"
+											: "bg-surface-light border-2 border-border-light shadow-strong"
 									}
 								`}
 							>
@@ -827,7 +787,7 @@ export default function Home() {
 										${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
 									`}
 								>
-									Ready to protect your art?
+									Ready to get started?
 								</h2>
 								<p
 									className={`
@@ -835,14 +795,16 @@ export default function Home() {
 										${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
 									`}
 								>
-									Join artists who are building NFTs that last centuries, not just years
+									Start minting more resilient NFTs
 								</p>
 								<Link
 									to="/collections"
-									className="group inline-block px-12 py-6 rounded-2xl text-xl font-bold bg-gradient-to-r from-primary to-secondary hover:from-primary-hover hover:to-secondary-hover text-white shadow-strong hover:shadow-[0_12px_48px_rgba(59,130,246,0.6)] transition-all duration-300 hover:scale-105"
+									className={`group inline-block px-12 py-6 rounded-2xl text-xl font-bold text-white shadow-strong transition-all duration-300 hover:scale-105 ${
+										isDarkMode ? "bg-primary-dark hover:bg-primary-dark-hover" : "bg-primary hover:bg-primary-hover"
+									}`}
 								>
 									<span className="flex items-center gap-3">
-										Start Protecting Your Art
+										Get Started
 										<Sparkles className="w-6 h-6 group-hover:rotate-12 transition-transform" />
 									</span>
 								</Link>
@@ -853,6 +815,6 @@ export default function Home() {
 			</div>
 
 			<Footer isDarkMode={isDarkMode} />
-		</div>
+		</PageBackground>
 	);
 }

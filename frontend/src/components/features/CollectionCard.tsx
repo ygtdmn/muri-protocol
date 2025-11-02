@@ -1,4 +1,3 @@
-import { FileText, Layers } from 'lucide-react';
 import type { Address } from 'viem';
 
 interface CollectionCardProps {
@@ -16,8 +15,6 @@ export function CollectionCard({
 	onClick,
 	isDarkMode,
 }: CollectionCardProps) {
-	const TypeIcon = type === 'ERC721' ? FileText : Layers;
-
 	return (
 		<button
 			onClick={onClick}
@@ -64,19 +61,6 @@ export function CollectionCard({
 					>
 						{address}
 					</p>
-				</div>
-
-				<div
-					className={`
-						p-2 rounded-lg transition-transform duration-200 group-hover:scale-110
-						${
-							isDarkMode
-								? 'bg-surface-hover-dark text-text-secondary-dark'
-								: 'bg-surface-hover-light text-text-secondary-light'
-						}
-					`}
-				>
-					<TypeIcon className="w-5 h-5" />
 				</div>
 			</div>
 		</button>

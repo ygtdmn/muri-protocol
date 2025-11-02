@@ -1,4 +1,4 @@
-import { Heart, Github } from "lucide-react";
+import { Github } from "lucide-react";
 
 interface FooterProps {
 	isDarkMode: boolean;
@@ -20,7 +20,7 @@ export default function Footer({ isDarkMode }: FooterProps) {
 				<div className="flex flex-col md:flex-row items-center justify-between gap-4">
 					<p
 						className={`
-							text-sm flex items-center gap-2
+							text-sm
 							${
 								isDarkMode 
 									? "text-text-secondary-dark" 
@@ -28,7 +28,7 @@ export default function Footer({ isDarkMode }: FooterProps) {
 							}
 						`}
 					>
-						Made with <Heart className="w-4 h-4 text-danger fill-danger" /> by{" "}
+						Built by{" "}
 						<a
 							href="https://x.com/yigitduman"
 							target="_blank"
@@ -44,6 +44,23 @@ export default function Footer({ isDarkMode }: FooterProps) {
 						>
 							Yigit Duman
 						</a>
+						{" "}and the{" "}
+						<a
+							href="https://discord.gg/VmjjHSyWJ8"
+							target="_blank"
+							rel="noopener noreferrer"
+							className={`
+								font-medium transition-colors
+								${
+									isDarkMode
+										? "text-text-primary-dark hover:text-primary-dark"
+										: "text-text-primary-light hover:text-primary"
+								}
+							`}
+						>
+							Pushers
+						</a>
+						{" "}community
 					</p>
 					
 					<div className="flex items-center gap-6">

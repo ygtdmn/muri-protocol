@@ -4,7 +4,9 @@ interface ConnectButtonHeaderProps {
 	isDarkMode: boolean;
 }
 
-export default function ConnectButtonHeader({ isDarkMode }: ConnectButtonHeaderProps) {
+export default function ConnectButtonHeader({
+	isDarkMode,
+}: ConnectButtonHeaderProps) {
 	return (
 		<ConnectButton.Custom>
 			{({
@@ -21,8 +23,7 @@ export default function ConnectButtonHeader({ isDarkMode }: ConnectButtonHeaderP
 					ready &&
 					account &&
 					chain &&
-					(!authenticationStatus ||
-						authenticationStatus === "authenticated");
+					(!authenticationStatus || authenticationStatus === "authenticated");
 
 				return (
 					<div

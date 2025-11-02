@@ -17,8 +17,7 @@ export default function ConnectButtonPrimary() {
 					ready &&
 					account &&
 					chain &&
-					(!authenticationStatus ||
-						authenticationStatus === "authenticated");
+					(!authenticationStatus || authenticationStatus === "authenticated");
 
 				return (
 					<div

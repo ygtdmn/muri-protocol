@@ -16,6 +16,7 @@ import Header from "../components/Header";
 import ConnectButtonPrimary from "../components/ConnectButtonPrimary";
 import { useTheme } from "../hooks/useTheme";
 import Footer from "../components/Footer";
+import PageBackground from "../components/PageBackground";
 import { CollectionCard } from "../components/features/CollectionCard";
 import { Alert } from "../components/ui/Alert";
 import { EmptyState } from "../components/ui/EmptyState";
@@ -268,23 +269,18 @@ export default function Collections() {
 	}, [address, chainId, isAuthenticated]);
 
 	return (
-		<div
-			className={`scroll-smooth min-h-screen flex flex-col ${
-				isDarkMode ? "bg-bg-dark text-text-primary-dark" : "bg-bg-light text-text-primary-light"
+		<PageBackground
+			isDarkMode={isDarkMode}
+			className={`scroll-smooth min-h-screen flex flex-col relative ${
+				isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"
 			}`}
 		>
 			<Header isDarkMode={isDarkMode} toggleTheme={toggleTheme} />
 
 			{/* Role Selection - Centered */}
 			{!userRole && (
-				<div className="flex-grow flex items-center justify-center p-4 relative overflow-hidden">
-					{/* Warm gradient background */}
-					<div className={`absolute inset-0 pointer-events-none ${isDarkMode ? "opacity-20" : "opacity-10"}`}>
-						<div className="absolute top-0 right-0 w-[600px] h-[600px] bg-gradient-to-br from-primary to-secondary rounded-full blur-3xl" />
-						<div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-gradient-to-tr from-secondary to-primary rounded-full blur-3xl" />
-					</div>
-
-					<div className="max-w-5xl w-full relative z-10">
+			<div className="flex-grow flex items-center justify-center p-4">
+				<div className="max-w-5xl w-full">
 						<div className="px-4 md:px-6 lg:px-8 py-12">
 							<div className="text-center mb-16">
 								<h1
@@ -292,12 +288,12 @@ export default function Collections() {
 										text-5xl md:text-6xl font-bold tracking-tight mb-6 leading-tight
 										${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
 									`}
-								>
-									Welcome to{" "}
-									<span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-										Wayfinder
-									</span>
-								</h1>
+							>
+								Welcome to{" "}
+								<span className={isDarkMode ? "text-primary-dark" : "text-primary"}>
+									Wayfinder
+								</span>
+							</h1>
 								<p
 									className={`
 										text-xl md:text-2xl max-w-2xl mx-auto leading-relaxed
@@ -309,23 +305,22 @@ export default function Collections() {
 							</div>
 
 							<div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-								{/* Creator Card - BIGGER & WARMER */}
+								{/* Creator Card */}
 								<button
 									onClick={() => setUserRole("creator")}
 									className={`
 										group p-12 md:p-14 rounded-3xl
-										border-2 transition-all duration-300
+										border transition-all duration-200
 										${
 											isDarkMode
-												? "bg-surface-dark/80 backdrop-blur-sm border-border-dark hover:border-primary-dark hover:shadow-[0_8px_32px_rgba(96,165,250,0.3)]"
-												: "bg-surface-light/80 backdrop-blur-sm border-border-light hover:border-primary hover:shadow-[0_8px_32px_rgba(59,130,246,0.2)]"
+												? "bg-surface-dark border-border-dark hover:bg-surface-hover-dark"
+												: "bg-surface-light border-border-light hover:bg-surface-hover-light shadow-soft"
 										}
-										hover:scale-105 hover:-translate-y-2
 									`}
 								>
 									<div className="text-center space-y-6">
-										<div className={`w-20 h-20 rounded-2xl flex items-center justify-center mx-auto transition-all duration-300 group-hover:scale-110 ${
-											isDarkMode ? "bg-primary-dark-subtle group-hover:bg-primary-dark/30" : "bg-primary-subtle group-hover:bg-primary/20"
+										<div className={`w-20 h-20 rounded-2xl flex items-center justify-center mx-auto transition-all duration-200 ${
+											isDarkMode ? "bg-primary-dark-subtle" : "bg-primary-subtle"
 										}`}>
 											<Palette className={`w-10 h-10 ${isDarkMode ? "text-primary-dark" : "text-primary"}`} />
 										</div>
@@ -341,23 +336,22 @@ export default function Collections() {
 									</div>
 								</button>
 
-								{/* Collector Card - BIGGER & WARMER */}
+								{/* Collector Card */}
 								<button
 									onClick={() => setUserRole("collector")}
 									className={`
 										group p-12 md:p-14 rounded-3xl
-										border-2 transition-all duration-300
+										border transition-all duration-200
 										${
 											isDarkMode
-												? "bg-surface-dark/80 backdrop-blur-sm border-border-dark hover:border-secondary-dark hover:shadow-[0_8px_32px_rgba(251,146,60,0.3)]"
-												: "bg-surface-light/80 backdrop-blur-sm border-border-light hover:border-secondary hover:shadow-[0_8px_32px_rgba(249,115,22,0.2)]"
+												? "bg-surface-dark border-border-dark hover:bg-surface-hover-dark"
+												: "bg-surface-light border-border-light hover:bg-surface-hover-light shadow-soft"
 										}
-										hover:scale-105 hover:-translate-y-2
 									`}
 								>
 									<div className="text-center space-y-6">
-										<div className={`w-20 h-20 rounded-2xl flex items-center justify-center mx-auto transition-all duration-300 group-hover:scale-110 ${
-											isDarkMode ? "bg-secondary-dark-subtle group-hover:bg-secondary-dark/30" : "bg-secondary-subtle group-hover:bg-secondary/20"
+										<div className={`w-20 h-20 rounded-2xl flex items-center justify-center mx-auto transition-all duration-200 ${
+											isDarkMode ? "bg-secondary-dark-subtle" : "bg-secondary-subtle"
 										}`}>
 											<Heart className={`w-10 h-10 ${isDarkMode ? "text-secondary-dark" : "text-secondary"}`} />
 										</div>
@@ -734,29 +728,25 @@ export default function Collections() {
 										)}
 
 										<div className="grid md:grid-cols-2 gap-5">
-											<button
-												className={`
-													group px-8 py-6 rounded-2xl font-bold text-lg
-													transition-all duration-300
-													${
-														canProceed
-															? `
-																bg-gradient-to-r from-primary to-secondary
-																hover:from-primary-hover hover:to-secondary-hover
-																text-white
-																shadow-medium hover:shadow-strong
-																hover:scale-105
-															`
-															: "opacity-40 cursor-not-allowed bg-surface-hover-light dark:bg-surface-hover-dark text-text-tertiary-light dark:text-text-tertiary-dark"
-													}
-												`}
-												disabled={!canProceed}
-												onClick={() =>
-													navigate(
-														`/mint?creator=${resolved.address}&type=${resolved.type}`
-													)
-												}
-											>
+									<button
+										className={`
+											group px-8 py-6 rounded-2xl font-bold text-lg
+											transition-all duration-300
+											${
+												canProceed
+													? isDarkMode
+														? "bg-primary-dark hover:bg-primary-dark-hover text-white shadow-medium hover:shadow-strong hover:scale-105"
+														: "bg-primary hover:bg-primary-hover text-white shadow-medium hover:shadow-strong hover:scale-105"
+													: "opacity-40 cursor-not-allowed bg-surface-hover-light dark:bg-surface-hover-dark text-text-tertiary-light dark:text-text-tertiary-dark"
+											}
+										`}
+										disabled={!canProceed}
+										onClick={() =>
+											navigate(
+												`/mint?creator=${resolved.address}&type=${resolved.type}`
+											)
+										}
+									>
 												<span className="flex items-center justify-center gap-2">
 													✨ Create New Artwork
 												</span>
@@ -826,7 +816,7 @@ export default function Collections() {
 											${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
 										`}
 									>
-										❤️ Collector Zone
+										Collector Zone
 									</h2>
 									<p
 										className={`
@@ -949,22 +939,21 @@ export default function Collections() {
 													</div>
 
 													<div>
-														<button
-															className={`
-																group w-full px-8 py-6 rounded-2xl font-bold text-lg
-																bg-gradient-to-r from-secondary to-primary
-																hover:from-secondary-hover hover:to-primary-hover
-																text-white
-																shadow-medium hover:shadow-strong
-																transition-all duration-300
-																hover:scale-105
-															`}
-															onClick={() =>
-																navigate(
-																	`/collector-zone?creator=${resolved.address}&type=${resolved.type}`
-																)
-															}
-														>
+													<button
+														className={`
+															group w-full px-8 py-6 rounded-2xl font-bold text-lg
+															text-white
+															shadow-medium hover:shadow-strong
+															transition-all duration-300
+															hover:scale-105
+															${isDarkMode ? "bg-secondary-dark hover:bg-secondary-dark-hover" : "bg-secondary hover:bg-secondary-hover"}
+														`}
+														onClick={() =>
+															navigate(
+																`/collector-zone?creator=${resolved.address}&type=${resolved.type}`
+															)
+														}
+													>
 															<span className="flex items-center justify-center gap-2">
 																❤️ Enter Collector Zone
 															</span>
@@ -1008,6 +997,6 @@ export default function Collections() {
 			</div>
 
 			<Footer isDarkMode={isDarkMode} />
-		</div>
+		</PageBackground>
 	);
 }
