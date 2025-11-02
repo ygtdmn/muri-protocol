@@ -9,6 +9,7 @@ const COOKIE_NAMES = {
 	ACCESS_TOKEN: "manifold_access_token",
 	SESSION_TOKEN: "manifold_session_token",
 	EXPIRES_AT: "manifold_expires_at",
+	WALLET_ADDRESS: "manifold_wallet_address",
 };
 
 function setCookie(name: string, value: string, hoursToExpire: number = 1) {
@@ -44,6 +45,7 @@ function clearAuthCookies() {
 	deleteCookie(COOKIE_NAMES.ACCESS_TOKEN);
 	deleteCookie(COOKIE_NAMES.SESSION_TOKEN);
 	deleteCookie(COOKIE_NAMES.EXPIRES_AT);
+	deleteCookie(COOKIE_NAMES.WALLET_ADDRESS);
 }
 
 export function useManifoldAuth() {
@@ -54,36 +56,47 @@ export function useManifoldAuth() {
 	const [isAuthenticating, setIsAuthenticating] = useState(false);
 	const [authenticatedAddress, setAuthenticatedAddress] = useState<string | null>(null);
 
-	// Initialize from cookies on mount
+	// Initialize from cookies on mount and when address changes
 	useEffect(() => {
+		const cachedAddress = getCookie(COOKIE_NAMES.WALLET_ADDRESS);
+		
+		// If wallet address changed, clear old authentication
+		if (cachedAddress && address && cachedAddress.toLowerCase() !== address.toLowerCase()) {
+			clearAuthCookies();
+			setToken("");
+			setSession("");
+			setAuthenticatedAddress(null);
+			return;
+		}
+		
+		// If no address connected, clear everything
+		if (!address) {
+			clearAuthCookies();
+			setToken("");
+			setSession("");
+			setAuthenticatedAddress(null);
+			return;
+		}
+		
+		// Check if authentication expired
 		if (isAuthExpired()) {
 			clearAuthCookies();
 			setToken("");
 			setSession("");
+			setAuthenticatedAddress(null);
 		} else {
+			// Restore tokens from cookies if they match current wallet
 			const accessToken = getCookie(COOKIE_NAMES.ACCESS_TOKEN);
 			const sessionToken = getCookie(COOKIE_NAMES.SESSION_TOKEN);
 			
-			if (accessToken) setToken(accessToken);
-			if (sessionToken) setSession(sessionToken);
+			if (accessToken && sessionToken && cachedAddress?.toLowerCase() === address?.toLowerCase()) {
+				setToken(accessToken);
+				setSession(sessionToken);
+				setAuthenticatedAddress(address);
+			}
 		}
-	}, []);
-
-	// Set authenticated address when we have both tokens and address
-	useEffect(() => {
-		if (token && session && address) {
-			setAuthenticatedAddress(address);
-		}
-	}, [token, session, address]);
-
-	// Clear authentication state when wallet address changes
-	useEffect(() => {
-		// Clear tokens when address changes (wallet switch)
-		clearAuthCookies();
-		setToken("");
-		setSession("");
-		setAuthenticatedAddress(null);
 	}, [address]);
+
 
 	const authenticate = async () => {
 		if (!address || !chainId || isAuthenticating) return;
@@ -190,11 +203,12 @@ export function useManifoldAuth() {
 			const sessionToken = sessionData.token as string;
 			if (!sessionToken) throw new Error("Failed to get session token");
 
-			// Save tokens to cookies with 1-hour expiration
+			// Save tokens and wallet address to cookies with 1-hour expiration
 			const expiresAt = Date.now() + 60 * 60 * 1000; // 1 hour from now
 			setCookie(COOKIE_NAMES.ACCESS_TOKEN, accessToken, 1);
 			setCookie(COOKIE_NAMES.SESSION_TOKEN, sessionToken, 1);
 			setCookie(COOKIE_NAMES.EXPIRES_AT, expiresAt.toString(), 1);
+			setCookie(COOKIE_NAMES.WALLET_ADDRESS, address, 1);
 
 			setToken(accessToken);
 			setSession(sessionToken);
