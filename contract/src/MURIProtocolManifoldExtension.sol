@@ -2,8 +2,8 @@
 pragma solidity >=0.8.30 <0.9.0;
 
 import { AdminControl } from "@manifoldxyz/libraries-solidity/contracts/access/AdminControl.sol";
-import { IWayfinder } from "./interfaces/IWayfinder.sol";
-import { IWayfinderCreator } from "./interfaces/IWayfinderCreator.sol";
+import { IMURIProtocol } from "./interfaces/IMURIProtocol.sol";
+import { IMURIProtocolCreator } from "./interfaces/IMURIProtocolCreator.sol";
 import { Lifebuoy } from "solady/utils/Lifebuoy.sol";
 import { IERC721CreatorCore } from "@manifoldxyz/creator-core-solidity/contracts/core/IERC721CreatorCore.sol";
 import { IERC1155CreatorCore } from "@manifoldxyz/creator-core-solidity/contracts/core/IERC1155CreatorCore.sol";
@@ -14,13 +14,13 @@ import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import { IERC1155 } from "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 
 /**
- * @title WayfinderManifoldExtension
+ * @title MURIProtocolManifoldExtension
  * @author Yigit Duman (@yigitduman)
- * @notice A Manifold Creator Extension for minting tokens with Wayfinder
+ * @notice A Manifold Creator Extension for minting tokens with MURI Protocol
  */
-contract WayfinderManifoldExtension is AdminControl, ICreatorExtensionTokenURI, IWayfinderCreator, Lifebuoy {
-    /// @notice The Wayfinder contract that handles token data and rendering
-    IWayfinder public wayfinder;
+contract MURIProtocolManifoldExtension is AdminControl, ICreatorExtensionTokenURI, IMURIProtocolCreator, Lifebuoy {
+    /// @notice The MURI Protocol contract that handles token data and rendering
+    IMURIProtocol public muriProtocol;
 
     /*//////////////////////////////////////////////////////////////
                             CUSTOM ERRORS
@@ -28,7 +28,7 @@ contract WayfinderManifoldExtension is AdminControl, ICreatorExtensionTokenURI, 
 
     error WalletNotAdmin();
     error InvalidIndexRange();
-    error WayfinderNotSet();
+    error MURIProtocolNotSet();
     error InvalidRecipient();
 
     /*//////////////////////////////////////////////////////////////
@@ -39,33 +39,33 @@ contract WayfinderManifoldExtension is AdminControl, ICreatorExtensionTokenURI, 
     event TokenMintedERC1155(
         address indexed creator, uint256 indexed tokenId, address[] indexed recipients, uint256[] quantities
     );
-    event WayfinderUpdated(address indexed newWayfinder);
+    event MURIProtocolUpdated(address indexed newMURIProtocol);
 
     /*//////////////////////////////////////////////////////////////
                             CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Initialize the contract with a Wayfinder instance
-    /// @param _wayfinder The Wayfinder contract address
-    constructor(address _wayfinder) {
-        wayfinder = IWayfinder(_wayfinder);
+    /// @notice Initialize the contract with a MURI Protocol instance
+    /// @param _muriProtocol The MURI Protocol contract address
+    constructor(address _muriProtocol) {
+        muriProtocol = IMURIProtocol(_muriProtocol);
     }
 
     /*//////////////////////////////////////////////////////////////
-                             WAYFINDER
+                             MURI PROTOCOL
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Update the Wayfinder contract address (admin only)
-    /// @param _wayfinder The new Wayfinder contract address
-    function setWayfinder(address _wayfinder) external adminRequired {
-        wayfinder = IWayfinder(_wayfinder);
-        emit WayfinderUpdated(_wayfinder);
+    /// @notice Update the MURI Protocol contract address (admin only)
+    /// @param _muriProtocol The new MURI Protocol contract address
+    function setMURIProtocol(address _muriProtocol) external adminRequired {
+        muriProtocol = IMURIProtocol(_muriProtocol);
+        emit MURIProtocolUpdated(_muriProtocol);
     }
 
-    /// @notice Get Wayfinder contract address
-    /// @return The Wayfinder contract address
-    function getWayfinder() external view returns (address) {
-        return address(wayfinder);
+    /// @notice Get MURI Protocol contract address
+    /// @return The MURI Protocol contract address
+    function getMURIProtocol() external view returns (address) {
+        return address(muriProtocol);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -138,7 +138,7 @@ contract WayfinderManifoldExtension is AdminControl, ICreatorExtensionTokenURI, 
         address contractAddress,
         address[] calldata recipients,
         uint256[] calldata quantities,
-        IWayfinder.InitConfig memory config,
+        IMURIProtocol.InitConfig memory config,
         bytes[] calldata thumbnailChunks,
         string[] calldata htmlTemplateChunks
     )
@@ -146,7 +146,7 @@ contract WayfinderManifoldExtension is AdminControl, ICreatorExtensionTokenURI, 
         payable
         contractAdminRequired(contractAddress)
     {
-        require(address(wayfinder) != address(0), WayfinderNotSet());
+        require(address(muriProtocol) != address(0), MURIProtocolNotSet());
         require(recipients.length > 0, InvalidIndexRange());
         require(quantities.length > 0, InvalidIndexRange());
 
@@ -158,9 +158,9 @@ contract WayfinderManifoldExtension is AdminControl, ICreatorExtensionTokenURI, 
         string[] memory uris = new string[](0); // Empty array uses default URI
         uint256[] memory tokenIds = IERC1155CreatorCore(contractAddress).mintExtensionNew(recipients, quantities, uris);
 
-        // Initialize token data in Wayfinder and emit events
+        // Initialize token data in MURI Protocol and emit events
         uint256 tokenId = tokenIds[0]; // There's only one token minted
-        wayfinder.initializeTokenData(contractAddress, tokenId, config, thumbnailChunks, htmlTemplateChunks);
+        muriProtocol.initializeTokenData(contractAddress, tokenId, config, thumbnailChunks, htmlTemplateChunks);
 
         emit TokenMintedERC1155(contractAddress, tokenId, recipients, quantities);
     }
@@ -174,7 +174,7 @@ contract WayfinderManifoldExtension is AdminControl, ICreatorExtensionTokenURI, 
     function mintERC721(
         address contractAddress,
         address recipient,
-        IWayfinder.InitConfig memory config,
+        IMURIProtocol.InitConfig memory config,
         bytes[] calldata thumbnailChunks,
         string[] calldata htmlTemplateChunks
     )
@@ -182,14 +182,14 @@ contract WayfinderManifoldExtension is AdminControl, ICreatorExtensionTokenURI, 
         payable
         contractAdminRequired(contractAddress)
     {
-        require(address(wayfinder) != address(0), WayfinderNotSet());
+        require(address(muriProtocol) != address(0), MURIProtocolNotSet());
         require(recipient != address(0), InvalidRecipient());
 
         // Mint tokens via Manifold creator contract
         uint256 tokenId = IERC721CreatorCore(contractAddress).mintExtension(recipient);
 
-        // Initialize token data in Wayfinder and emit events
-        wayfinder.initializeTokenData(contractAddress, tokenId, config, thumbnailChunks, htmlTemplateChunks);
+        // Initialize token data in MURI Protocol and emit events
+        muriProtocol.initializeTokenData(contractAddress, tokenId, config, thumbnailChunks, htmlTemplateChunks);
         emit TokenMintedERC721(contractAddress, tokenId, recipient);
     }
 
@@ -202,7 +202,7 @@ contract WayfinderManifoldExtension is AdminControl, ICreatorExtensionTokenURI, 
     /// @param tokenId The token ID
     /// @return The token URI
     function tokenURI(address creator, uint256 tokenId) external view override returns (string memory) {
-        return wayfinder.renderMetadata(creator, tokenId);
+        return muriProtocol.renderMetadata(creator, tokenId);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -214,7 +214,7 @@ contract WayfinderManifoldExtension is AdminControl, ICreatorExtensionTokenURI, 
     /// @return True if interface is supported
     function supportsInterface(bytes4 interfaceId) public view virtual override(AdminControl, IERC165) returns (bool) {
         return interfaceId == type(ICreatorExtensionTokenURI).interfaceId
-            || interfaceId == type(IWayfinderCreator).interfaceId || AdminControl.supportsInterface(interfaceId)
+            || interfaceId == type(IMURIProtocolCreator).interfaceId || AdminControl.supportsInterface(interfaceId)
             || super.supportsInterface(interfaceId);
     }
 }

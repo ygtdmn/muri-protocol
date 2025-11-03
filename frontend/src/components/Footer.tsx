@@ -65,7 +65,7 @@ export default function Footer({ isDarkMode }: FooterProps) {
 					
 					<div className="flex items-center gap-6">
 						<a
-							href="https://github.com/ygtdmn/wayfinder"
+							href="https://github.com/ygtdmn/muri-protocol"
 							target="_blank"
 							rel="noopener noreferrer"
 							className={`
@@ -84,7 +84,7 @@ export default function Footer({ isDarkMode }: FooterProps) {
 						</a>
 						
 						<a
-							href="https://github.com/ygtdmn/wayfinder/blob/main/LICENSE.md"
+							href="https://github.com/ygtdmn/muri-protocol/blob/main/LICENSE.md"
 							target="_blank"
 							rel="noopener noreferrer"
 							className={`

@@ -2,11 +2,11 @@
 pragma solidity >=0.8.30 <0.9.0;
 
 /**
- * @title IWayfinder
+ * @title IMURIProtocol
  * @author Yigit Duman (@yigitduman)
- * @notice Interface for the Wayfinder contract
+ * @notice Interface for the MURI Protocol contract
  */
-interface IWayfinder {
+interface IMURIProtocol {
     /*//////////////////////////////////////////////////////////////
                                 ENUMS
     //////////////////////////////////////////////////////////////*/

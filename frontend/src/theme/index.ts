@@ -1,4 +1,4 @@
-// Central theme exports for Wayfinder design system
+// Central theme exports for MURI Protocol design system
 
 export * from './colors';
 export * from './spacing';

@@ -2,10 +2,10 @@
 pragma solidity >=0.8.30 <0.9.0;
 
 import { ERC721 } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import { IWayfinderCreator } from "src/interfaces/IWayfinderCreator.sol";
+import { IMURIProtocolCreator } from "src/interfaces/IMURIProtocolCreator.sol";
 import { IERC165 } from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
-contract MockERC721 is ERC721, IWayfinderCreator {
+contract MockERC721 is ERC721, IMURIProtocolCreator {
     uint256 private _nextTokenId = 1;
     mapping(address => bool) private _admins;
     address private _owner;
@@ -55,6 +55,6 @@ contract MockERC721 is ERC721, IWayfinderCreator {
     }
 
     function supportsInterface(bytes4 interfaceId) public view virtual override(ERC721, IERC165) returns (bool) {
-        return interfaceId == type(IWayfinderCreator).interfaceId || super.supportsInterface(interfaceId);
+        return interfaceId == type(IMURIProtocolCreator).interfaceId || super.supportsInterface(interfaceId);
     }
 }

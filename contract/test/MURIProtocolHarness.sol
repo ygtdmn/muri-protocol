@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.30 <0.9.0;
 
-import { Wayfinder } from "src/Wayfinder.sol";
+import { MURIProtocol } from "src/MURIProtocol.sol";
 
-contract WayfinderHarness is Wayfinder {
-    constructor() Wayfinder("<html>{{FILE_URIS}}</html>", false) { }
+contract MURIProtocolHarness is MURIProtocol {
+    constructor() MURIProtocol("<html>{{FILE_URIS}}</html>", false) { }
 
     function isContractAdminPublic(address contractAddress) external view returns (bool) {
         return _isContractAdmin(contractAddress, msg.sender);

@@ -1,4 +1,4 @@
-// Typography system for Wayfinder
+// Typography system for MURI Protocol
 
 export const typography = {
 	// Display (landing pages)

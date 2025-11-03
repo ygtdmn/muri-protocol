@@ -6,7 +6,7 @@ import {
 } from "wagmi";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import type { Address } from "viem";
-import { wayfinderAbi } from "../abis/wayfinder-abi";
+import { muriAbi } from "../abis/muri-abi";
 import Header from "../components/Header";
 import { useTheme } from "../hooks/useTheme";
 import Footer from "../components/Footer";
@@ -46,8 +46,8 @@ export default function CollectorZone() {
 		isLoading: tokenDataLoading,
 		refetch: refetchTokenData,
 	} = useReadContract({
-		abi: wayfinderAbi,
-		address: import.meta.env.VITE_WAYFINDER_ADDRESS as Address,
+		abi: muriAbi,
+		address: import.meta.env.VITE_MURI_ADDRESS as Address,
 		functionName: "tokenData",
 		args: [creator, BigInt(tokenId || 0)],
 		query: { enabled: !!creator && !!tokenId },
@@ -55,8 +55,8 @@ export default function CollectorZone() {
 
 	// Read permissions separately
 	const { data: permissions } = useReadContract({
-		abi: wayfinderAbi,
-		address: import.meta.env.VITE_WAYFINDER_ADDRESS as Address,
+		abi: muriAbi,
+		address: import.meta.env.VITE_MURI_ADDRESS as Address,
 		functionName: "getPermissions",
 		args: [creator, BigInt(tokenId || 0)],
 		query: { enabled: !!creator && !!tokenId },
@@ -64,8 +64,8 @@ export default function CollectorZone() {
 
 	// Read artwork data
 	const { data: artwork } = useReadContract({
-		abi: wayfinderAbi,
-		address: import.meta.env.VITE_WAYFINDER_ADDRESS as Address,
+		abi: muriAbi,
+		address: import.meta.env.VITE_MURI_ADDRESS as Address,
 		functionName: "getArtwork",
 		args: [creator, BigInt(tokenId || 0)],
 		query: { enabled: !!creator && !!tokenId },
@@ -73,8 +73,8 @@ export default function CollectorZone() {
 
 	// Read thumbnail info
 	const { data: thumbnailInfo } = useReadContract({
-		abi: wayfinderAbi,
-		address: import.meta.env.VITE_WAYFINDER_ADDRESS as Address,
+		abi: muriAbi,
+		address: import.meta.env.VITE_MURI_ADDRESS as Address,
 		functionName: "getThumbnailInfo",
 		args: [creator, BigInt(tokenId || 0)],
 		query: { enabled: !!creator && !!tokenId },
@@ -83,8 +83,8 @@ export default function CollectorZone() {
 	// Read artist artwork URIs
 	const { data: artistArtworkUris, refetch: refetchArtworkUris } =
 		useReadContract({
-			abi: wayfinderAbi,
-			address: import.meta.env.VITE_WAYFINDER_ADDRESS as Address,
+			abi: muriAbi,
+			address: import.meta.env.VITE_MURI_ADDRESS as Address,
 			functionName: "getArtistArtworkUris",
 			args: [creator, BigInt(tokenId || 0)],
 			query: { enabled: !!creator && !!tokenId },
@@ -93,8 +93,8 @@ export default function CollectorZone() {
 	// Read collector artwork URIs
 	const { data: collectorArtworkUris, refetch: refetchCollectorUris } =
 		useReadContract({
-			abi: wayfinderAbi,
-			address: import.meta.env.VITE_WAYFINDER_ADDRESS as Address,
+			abi: muriAbi,
+			address: import.meta.env.VITE_MURI_ADDRESS as Address,
 			functionName: "getCollectorArtworkUris",
 			args: [creator, BigInt(tokenId || 0)],
 			query: { enabled: !!creator && !!tokenId },
@@ -103,8 +103,8 @@ export default function CollectorZone() {
 	// Read artist thumbnail URIs
 	const { data: artistThumbnailUris, refetch: refetchThumbnailUris } =
 		useReadContract({
-			abi: wayfinderAbi,
-			address: import.meta.env.VITE_WAYFINDER_ADDRESS as Address,
+			abi: muriAbi,
+			address: import.meta.env.VITE_MURI_ADDRESS as Address,
 			functionName: "getThumbnailUris",
 			args: [creator, BigInt(tokenId || 0)],
 			query: { enabled: !!creator && !!tokenId },
@@ -112,8 +112,8 @@ export default function CollectorZone() {
 
 	// Test contract connection with a simple view function
 	const { data: htmlTemplate, error: contractError } = useReadContract({
-		abi: wayfinderAbi,
-		address: import.meta.env.VITE_WAYFINDER_ADDRESS as Address,
+		abi: muriAbi,
+		address: import.meta.env.VITE_MURI_ADDRESS as Address,
 		functionName: "getDefaultHtmlTemplate",
 		args: [],
 		query: { enabled: true },
@@ -158,7 +158,7 @@ export default function CollectorZone() {
 	useEffect(() => {
 		console.log(
 			"CollectorZone Debug - Contract Address:",
-			import.meta.env.VITE_WAYFINDER_ADDRESS
+			import.meta.env.VITE_MURI_ADDRESS
 		);
 		console.log("CollectorZone Debug - Creator:", creator);
 		console.log("CollectorZone Debug - Token ID:", tokenId);
@@ -173,8 +173,8 @@ export default function CollectorZone() {
 	// Contract interaction functions
 	const updateDisplayMode = () => {
 		writeContract({
-			abi: wayfinderAbi,
-			address: import.meta.env.VITE_WAYFINDER_ADDRESS as Address,
+			abi: muriAbi,
+			address: import.meta.env.VITE_MURI_ADDRESS as Address,
 			functionName: "setDisplayMode",
 			args: [creator, BigInt(tokenId), displayMode],
 		});
@@ -182,8 +182,8 @@ export default function CollectorZone() {
 
 	const updateArtworkSelection = () => {
 		writeContract({
-			abi: wayfinderAbi,
-			address: import.meta.env.VITE_WAYFINDER_ADDRESS as Address,
+			abi: muriAbi,
+			address: import.meta.env.VITE_MURI_ADDRESS as Address,
 			functionName: "setSelectedUri",
 			args: [creator, BigInt(tokenId), BigInt(selectedArtworkIndex)],
 		});
@@ -191,8 +191,8 @@ export default function CollectorZone() {
 
 	const updateThumbnailSelection = () => {
 		writeContract({
-			abi: wayfinderAbi,
-			address: import.meta.env.VITE_WAYFINDER_ADDRESS as Address,
+			abi: muriAbi,
+			address: import.meta.env.VITE_MURI_ADDRESS as Address,
 			functionName: "setSelectedThumbnailUri",
 			args: [creator, BigInt(tokenId), BigInt(selectedThumbnailIndex)],
 		});
@@ -201,8 +201,8 @@ export default function CollectorZone() {
 	const addCollectorArtworkUri = () => {
 		if (!newArtworkUri.trim()) return;
 		writeContract({
-			abi: wayfinderAbi,
-			address: import.meta.env.VITE_WAYFINDER_ADDRESS as Address,
+			abi: muriAbi,
+			address: import.meta.env.VITE_MURI_ADDRESS as Address,
 			functionName: "addArtworkUris",
 			args: [creator, BigInt(tokenId), [newArtworkUri.trim()]],
 		});
@@ -211,8 +211,8 @@ export default function CollectorZone() {
 
 	const removeCollectorArtworkUri = (index: number) => {
 		writeContract({
-			abi: wayfinderAbi,
-			address: import.meta.env.VITE_WAYFINDER_ADDRESS as Address,
+			abi: muriAbi,
+			address: import.meta.env.VITE_MURI_ADDRESS as Address,
 			functionName: "removeArtworkUris",
 			args: [creator, BigInt(tokenId), [BigInt(index)]],
 		});

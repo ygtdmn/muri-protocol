@@ -164,7 +164,7 @@ export default function Home() {
 										${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
 									`}
 								>
-									Upload your artwork and Wayfinder will calculate a secure hash to verify
+									Upload your artwork and MURI will calculate a secure hash to verify
 									authenticity
 								</p>
 							</div>
@@ -559,7 +559,7 @@ export default function Home() {
 											${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
 										`}
 									>
-										What problem does Wayfinder solve?
+										What problem does MURI Protocol solve?
 									</h3>
 									<span
 										className={`
@@ -580,7 +580,7 @@ export default function Home() {
 										<p className="leading-relaxed">
 											Most NFTs rely on a single link to display the artwork. If that
 											link breaks (server goes down, IPFS gateway fails, etc.), the
-											NFT becomes a broken image. Wayfinder stores multiple backup
+											NFT becomes a broken image. MURI stores multiple backup
 											links and automatically tries each one until it finds a working
 											version. Your art stays visible, no matter what.
 										</p>
@@ -636,7 +636,7 @@ export default function Home() {
 										`}
 									>
 										<p className="leading-relaxed">
-											Wayfinder stores your NFT metadata and a hash of your artwork
+											MURI stores your NFT metadata and a hash of your artwork
 											on-chain. You provide multiple URLs where your artwork lives
 											(IPFS, Arweave, etc.). In "Smart HTML" mode, we embed a smart
 											template that tries each URL in order until one loads. In
@@ -734,7 +734,7 @@ export default function Home() {
 											${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
 										`}
 									>
-										Who should use Wayfinder?
+										Who should use MURI Protocol?
 									</h3>
 									<span
 										className={`
@@ -754,7 +754,7 @@ export default function Home() {
 									>
 										<p className="leading-relaxed">
 											Artists whose artwork is too large to store fully on-chain. While
-											fully on-chain minting is the most resilient approach, Wayfinder 
+											fully on-chain minting is the most resilient approach, MURI 
 											provides the next best option when that's not practical due to file 
 											size—offering better protection against link rot and platform failures 
 											by not putting all your eggs in one basket. Works with Manifold Creator 

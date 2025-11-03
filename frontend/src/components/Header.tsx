@@ -35,7 +35,7 @@ export default function Header({ isDarkMode, toggleTheme, hideConnectButton }: H
 						}
 					`}
 				>
-					Wayfinder
+					MURI Protocol
 				</Link>
 				
 				<div className="flex items-center gap-3">

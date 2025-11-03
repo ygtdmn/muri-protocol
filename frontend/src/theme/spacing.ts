@@ -1,4 +1,4 @@
-// Spacing system for Wayfinder
+// Spacing system for MURI Protocol
 
 export const spacing = {
 	xs: '0.5rem', // 8px

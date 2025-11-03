@@ -4,7 +4,7 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import type { Address } from "viem";
 import { decodeEventLog } from "viem";
 import { base } from "wagmi/chains";
-import { wayfinderExtensionAbi } from "../abis/wayfinder-manifold-extension-abi";
+import { muriExtensionAbi } from "../abis/muri-manifold-extension-abi";
 import fastlz from "../lib/fastlz";
 import { sha256 } from "js-sha256";
 import { Upload, Link2, Sparkles, ChevronDown, User } from "lucide-react";
@@ -108,7 +108,7 @@ export default function Mint() {
 			try {
 				for (const log of receipt.logs) {
 					try {
-						const decoded = decodeEventLog({ abi: wayfinderExtensionAbi, data: log.data, topics: log.topics });
+						const decoded = decodeEventLog({ abi: muriExtensionAbi, data: log.data, topics: log.topics });
 						if (decoded.eventName === "TokenMintedERC721" || decoded.eventName === "TokenMintedERC1155") {
 							const tokenId = (decoded.args as { tokenId: bigint }).tokenId;
 							if (tokenId) {
@@ -356,16 +356,16 @@ export default function Mint() {
 
 		if (type === "ERC721") {
 				writeContract({
-					abi: wayfinderExtensionAbi,
-					address: import.meta.env.VITE_WAYFINDER_EXTENSION_ADDRESS as Address,
+					abi: muriExtensionAbi,
+					address: import.meta.env.VITE_MURI_EXTENSION_ADDRESS as Address,
 				functionName: "mintERC721",
 				args: [creator, recipientAddress, initConfig, thumbnailChunksToSend, htmlTemplateChunks],
 					value: 0n,
 				});
 			} else {
 				writeContract({
-					abi: wayfinderExtensionAbi,
-					address: import.meta.env.VITE_WAYFINDER_EXTENSION_ADDRESS as Address,
+					abi: muriExtensionAbi,
+					address: import.meta.env.VITE_MURI_EXTENSION_ADDRESS as Address,
 				functionName: "mintERC1155",
 				args: [creator, [recipientAddress], [BigInt(amount || 1)], initConfig, thumbnailChunksToSend, htmlTemplateChunks],
 					value: 0n,

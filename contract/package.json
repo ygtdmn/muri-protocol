@@ -1,6 +1,6 @@
 {
-  "name": "wayfinder-solidity",
-  "description": "Solidity contracts for Wayfinder",
+  "name": "muri-protocol",
+  "description": "Solidity contracts for MURI Protocol",
   "version": "1.0.0",
   "dependencies": {
     "@manifoldxyz/creator-core-solidity": "^3.0.0",

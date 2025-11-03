@@ -1,7 +1,9 @@
-export const wayfinderExtensionAbi = [
+export const muriExtensionAbi = [
 	{
 		type: "constructor",
-		inputs: [{ name: "_wayfinder", type: "address", internalType: "address" }],
+		inputs: [
+			{ name: "_muriProtocol", type: "address", internalType: "address" },
+		],
 		stateMutability: "nonpayable",
 	},
 	{
@@ -20,7 +22,7 @@ export const wayfinderExtensionAbi = [
 	},
 	{
 		type: "function",
-		name: "getWayfinder",
+		name: "getMURIProtocol",
 		inputs: [],
 		outputs: [{ name: "", type: "address", internalType: "address" }],
 		stateMutability: "view",
@@ -60,13 +62,13 @@ export const wayfinderExtensionAbi = [
 			{
 				name: "config",
 				type: "tuple",
-				internalType: "struct IWayfinder.InitConfig",
+				internalType: "struct IMURIProtocol.InitConfig",
 				components: [
 					{ name: "metadata", type: "string", internalType: "string" },
 					{
 						name: "artwork",
 						type: "tuple",
-						internalType: "struct IWayfinder.Artwork",
+						internalType: "struct IMURIProtocol.Artwork",
 						components: [
 							{
 								name: "artistUris",
@@ -91,17 +93,17 @@ export const wayfinderExtensionAbi = [
 					{
 						name: "thumbnail",
 						type: "tuple",
-						internalType: "struct IWayfinder.Thumbnail",
+						internalType: "struct IMURIProtocol.Thumbnail",
 						components: [
 							{
 								name: "kind",
 								type: "uint8",
-								internalType: "enum IWayfinder.ThumbnailKind",
+								internalType: "enum IMURIProtocol.ThumbnailKind",
 							},
 							{
 								name: "onChain",
 								type: "tuple",
-								internalType: "struct IWayfinder.OnChainThumbnail",
+								internalType: "struct IMURIProtocol.OnChainThumbnail",
 								components: [
 									{ name: "mimeType", type: "string", internalType: "string" },
 									{
@@ -115,7 +117,7 @@ export const wayfinderExtensionAbi = [
 							{
 								name: "offChain",
 								type: "tuple",
-								internalType: "struct IWayfinder.OffChainThumbnail",
+								internalType: "struct IMURIProtocol.OffChainThumbnail",
 								components: [
 									{ name: "uris", type: "string[]", internalType: "string[]" },
 									{
@@ -130,12 +132,12 @@ export const wayfinderExtensionAbi = [
 					{
 						name: "displayMode",
 						type: "uint8",
-						internalType: "enum IWayfinder.DisplayMode",
+						internalType: "enum IMURIProtocol.DisplayMode",
 					},
 					{
 						name: "permissions",
 						type: "tuple",
-						internalType: "struct IWayfinder.Permissions",
+						internalType: "struct IMURIProtocol.Permissions",
 						components: [
 							{ name: "flags", type: "uint16", internalType: "uint16" },
 						],
@@ -143,7 +145,7 @@ export const wayfinderExtensionAbi = [
 					{
 						name: "htmlTemplate",
 						type: "tuple",
-						internalType: "struct IWayfinder.HtmlTemplate",
+						internalType: "struct IMURIProtocol.HtmlTemplate",
 						components: [
 							{ name: "chunks", type: "address[]", internalType: "address[]" },
 							{ name: "zipped", type: "bool", internalType: "bool" },
@@ -170,13 +172,13 @@ export const wayfinderExtensionAbi = [
 			{
 				name: "config",
 				type: "tuple",
-				internalType: "struct IWayfinder.InitConfig",
+				internalType: "struct IMURIProtocol.InitConfig",
 				components: [
 					{ name: "metadata", type: "string", internalType: "string" },
 					{
 						name: "artwork",
 						type: "tuple",
-						internalType: "struct IWayfinder.Artwork",
+						internalType: "struct IMURIProtocol.Artwork",
 						components: [
 							{
 								name: "artistUris",
@@ -201,17 +203,17 @@ export const wayfinderExtensionAbi = [
 					{
 						name: "thumbnail",
 						type: "tuple",
-						internalType: "struct IWayfinder.Thumbnail",
+						internalType: "struct IMURIProtocol.Thumbnail",
 						components: [
 							{
 								name: "kind",
 								type: "uint8",
-								internalType: "enum IWayfinder.ThumbnailKind",
+								internalType: "enum IMURIProtocol.ThumbnailKind",
 							},
 							{
 								name: "onChain",
 								type: "tuple",
-								internalType: "struct IWayfinder.OnChainThumbnail",
+								internalType: "struct IMURIProtocol.OnChainThumbnail",
 								components: [
 									{ name: "mimeType", type: "string", internalType: "string" },
 									{
@@ -225,7 +227,7 @@ export const wayfinderExtensionAbi = [
 							{
 								name: "offChain",
 								type: "tuple",
-								internalType: "struct IWayfinder.OffChainThumbnail",
+								internalType: "struct IMURIProtocol.OffChainThumbnail",
 								components: [
 									{ name: "uris", type: "string[]", internalType: "string[]" },
 									{
@@ -240,12 +242,12 @@ export const wayfinderExtensionAbi = [
 					{
 						name: "displayMode",
 						type: "uint8",
-						internalType: "enum IWayfinder.DisplayMode",
+						internalType: "enum IMURIProtocol.DisplayMode",
 					},
 					{
 						name: "permissions",
 						type: "tuple",
-						internalType: "struct IWayfinder.Permissions",
+						internalType: "struct IMURIProtocol.Permissions",
 						components: [
 							{ name: "flags", type: "uint16", internalType: "uint16" },
 						],
@@ -253,7 +255,7 @@ export const wayfinderExtensionAbi = [
 					{
 						name: "htmlTemplate",
 						type: "tuple",
-						internalType: "struct IWayfinder.HtmlTemplate",
+						internalType: "struct IMURIProtocol.HtmlTemplate",
 						components: [
 							{ name: "chunks", type: "address[]", internalType: "address[]" },
 							{ name: "zipped", type: "bool", internalType: "bool" },
@@ -273,10 +275,10 @@ export const wayfinderExtensionAbi = [
 	},
 	{
 		type: "function",
-		name: "wayfinder",
+		name: "muriProtocol",
 		inputs: [],
 		outputs: [
-			{ name: "", type: "address", internalType: "contract IWayfinder" },
+			{ name: "", type: "address", internalType: "contract IMURIProtocol" },
 		],
 		stateMutability: "view",
 	},
@@ -367,8 +369,10 @@ export const wayfinderExtensionAbi = [
 	},
 	{
 		type: "function",
-		name: "setWayfinder",
-		inputs: [{ name: "_wayfinder", type: "address", internalType: "address" }],
+		name: "setMURIProtocol",
+		inputs: [
+			{ name: "_muriProtocol", type: "address", internalType: "address" },
+		],
 		outputs: [],
 		stateMutability: "nonpayable",
 	},
@@ -436,10 +440,10 @@ export const wayfinderExtensionAbi = [
 	},
 	{
 		type: "event",
-		name: "WayfinderUpdated",
+		name: "MURIProtocolUpdated",
 		inputs: [
 			{
-				name: "newWayfinder",
+				name: "newMURIProtocol",
 				type: "address",
 				indexed: true,
 				internalType: "address",
@@ -524,7 +528,7 @@ export const wayfinderExtensionAbi = [
 	},
 	{ type: "error", name: "InvalidIndexRange", inputs: [] },
 	{ type: "error", name: "InvalidRecipient", inputs: [] },
-	{ type: "error", name: "WayfinderNotSet", inputs: [] },
+	{ type: "error", name: "MURIProtocolNotSet", inputs: [] },
 	{ type: "error", name: "RescueTransferFailed", inputs: [] },
 	{ type: "error", name: "RescueUnauthorizedOrLocked", inputs: [] },
 	{ type: "error", name: "WalletNotAdmin", inputs: [] },

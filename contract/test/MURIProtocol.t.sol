@@ -2,18 +2,18 @@
 pragma solidity >=0.8.30 <0.9.0;
 
 import { Test, Vm } from "forge-std/src/Test.sol";
-import { Wayfinder } from "src/Wayfinder.sol";
-import { IWayfinder } from "src/interfaces/IWayfinder.sol";
+import { MURIProtocol } from "src/MURIProtocol.sol";
+import { IMURIProtocol } from "src/interfaces/IMURIProtocol.sol";
 import { MockCustomOwnership } from "test/mocks/MockCustomOwnership.sol";
 import { MockAdminControl } from "test/mocks/MockAdminControl.sol";
 import { LibZip } from "solady/utils/LibZip.sol";
 import { MockERC721 } from "test/mocks/MockERC721.sol";
 import { MockERC1155 } from "test/mocks/MockERC1155.sol";
 import { MockOwnable } from "test/mocks/MockOwnable.sol";
-import { MockWayfinderExtension } from "test/mocks/MockWayfinderExtension.sol";
-import { WayfinderHarness } from "test/WayfinderHarness.sol";
+import { MockMURIProtocolExtension } from "test/mocks/MockMURIProtocolExtension.sol";
+import { MURIProtocolHarness } from "test/MURIProtocolHarness.sol";
 
-contract WayfinderTest is Test {
+contract MURIProtocolTest is Test {
     // Test actors
     address owner = address(0x01);
     address artist = address(0x02);
@@ -21,14 +21,14 @@ contract WayfinderTest is Test {
     address stranger = address(0x04);
 
     // Core contracts
-    Wayfinder wayfinder;
-    WayfinderHarness harness;
+    MURIProtocol muriProtocol;
+    MURIProtocolHarness harness;
     MockAdminControl adminControl;
     MockERC721 mockERC721;
     MockERC1155 mockERC1155;
     MockOwnable mockOwnable;
     MockCustomOwnership mockCustomOwnership;
-    MockWayfinderExtension extension;
+    MockMURIProtocolExtension extension;
 
     // Test data
     string constant DEFAULT_HTML_TEMPLATE = "<html>{{FILE_URIS}}</html>";
@@ -38,7 +38,7 @@ contract WayfinderTest is Test {
     string[] testThumbnailUris;
     uint256 constant TEST_TOKEN_ID = 1;
 
-    // Permission constants (copied from Wayfinder.sol)
+    // Permission constants (copied from MURIProtocol.sol)
     uint16 constant ARTIST_UPDATE_THUMB = 2 ** 0;
     uint16 constant ARTIST_UPDATE_META = 2 ** 1;
     uint16 constant ARTIST_CHOOSE_URIS = 2 ** 2;
@@ -59,9 +59,9 @@ contract WayfinderTest is Test {
         vm.startPrank(owner);
 
         // Deploy main contracts
-        wayfinder = new Wayfinder(DEFAULT_HTML_TEMPLATE, false);
-        harness = new WayfinderHarness();
-        extension = new MockWayfinderExtension(address(wayfinder));
+        muriProtocol = new MURIProtocol(DEFAULT_HTML_TEMPLATE, false);
+        harness = new MURIProtocolHarness();
+        extension = new MockMURIProtocolExtension(address(muriProtocol));
 
         // Deploy admin control and set artist as admin
         adminControl = new MockAdminControl();
@@ -86,19 +86,19 @@ contract WayfinderTest is Test {
 
         vm.stopPrank();
 
-        // Register contracts with Wayfinder using the extension as operator
+        // Register contracts with MURI Protocol using the extension as operator
         // Need to do this as the contract admin for each contract
         vm.prank(artist, artist);
-        wayfinder.registerContract(address(adminControl), address(extension));
+        muriProtocol.registerContract(address(adminControl), address(extension));
 
         vm.prank(artist, artist);
-        wayfinder.registerContract(address(mockERC721), address(extension));
+        muriProtocol.registerContract(address(mockERC721), address(extension));
 
         vm.prank(artist, artist);
-        wayfinder.registerContract(address(mockERC1155), address(extension));
+        muriProtocol.registerContract(address(mockERC1155), address(extension));
 
         vm.prank(artist, artist);
-        wayfinder.registerContract(address(mockOwnable), address(0));
+        muriProtocol.registerContract(address(mockOwnable), address(0));
 
         // Set up extension permissions (owner is already admin from constructor)
         vm.prank(owner, owner);
@@ -128,11 +128,11 @@ contract WayfinderTest is Test {
                         HELPER FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    function _createValidInitConfig() internal view returns (IWayfinder.InitConfig memory) {
-        IWayfinder.InitConfig memory config;
+    function _createValidInitConfig() internal view returns (IMURIProtocol.InitConfig memory) {
+        IMURIProtocol.InitConfig memory config;
 
         config.metadata = TEST_METADATA;
-        config.displayMode = IWayfinder.DisplayMode.DIRECT_FILE;
+        config.displayMode = IMURIProtocol.DisplayMode.DIRECT_FILE;
 
         // Set up artwork
         config.artwork.artistUris = testArtistUris;
@@ -147,7 +147,7 @@ contract WayfinderTest is Test {
             | COLLECTOR_ADD_REMOVE | COLLECTOR_CHOOSE_THUMB | COLLECTOR_UPDATE_MODE;
 
         // Set up off-chain thumbnail
-        config.thumbnail.kind = IWayfinder.ThumbnailKind.OFF_CHAIN;
+        config.thumbnail.kind = IMURIProtocol.ThumbnailKind.OFF_CHAIN;
         config.thumbnail.offChain.uris = testThumbnailUris;
         config.thumbnail.offChain.selectedUriIndex = 0;
 
@@ -179,10 +179,10 @@ contract WayfinderTest is Test {
         // Test NotTokenOwner error - we'll test this in the _isTokenOwner context
 
         // Test ContractNotRegistered error
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
 
         vm.prank(artist, artist);
-        vm.expectRevert(abi.encodeWithSelector(IWayfinder.ContractNotRegistered.selector));
+        vm.expectRevert(abi.encodeWithSelector(IMURIProtocol.ContractNotRegistered.selector));
         extension.initializeTokenData(address(stranger), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
 
         // Test InvalidIndexRange error
@@ -190,7 +190,7 @@ contract WayfinderTest is Test {
         config.artwork.selectedArtistUriIndex = 999;
 
         vm.prank(artist, artist);
-        vm.expectRevert(abi.encodeWithSelector(IWayfinder.InvalidSelectedArtistUriIndex.selector));
+        vm.expectRevert(abi.encodeWithSelector(IMURIProtocol.InvalidSelectedArtistUriIndex.selector));
         extension.initializeTokenData(address(adminControl), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
 
         // Test ArtistPermissionRevoked error
@@ -199,13 +199,13 @@ contract WayfinderTest is Test {
         extension.initializeTokenData(address(adminControl), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
 
         vm.prank(artist, artist);
-        wayfinder.revokeArtistPermissions(
+        muriProtocol.revokeArtistPermissions(
             address(adminControl), TEST_TOKEN_ID, false, true, false, false, false, false, false
         );
 
         vm.prank(artist, artist);
-        vm.expectRevert(abi.encodeWithSelector(IWayfinder.ArtistPermissionRevoked.selector));
-        wayfinder.updateMetadata(address(adminControl), TEST_TOKEN_ID, "new metadata");
+        vm.expectRevert(abi.encodeWithSelector(IMURIProtocol.ArtistPermissionRevoked.selector));
+        muriProtocol.updateMetadata(address(adminControl), TEST_TOKEN_ID, "new metadata");
 
         // Test other errors in their respective test contexts...
     }
@@ -241,8 +241,8 @@ contract WayfinderTest is Test {
     //////////////////////////////////////////////////////////////*/
 
     function test_isTokenOwner_ERC721() public {
-        // Test token ownership through the actual Wayfinder contract
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        // Test token ownership through the actual MURI Protocol contract
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
 
         vm.prank(artist, artist);
         extension.initializeTokenData(address(mockERC721), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
@@ -253,17 +253,17 @@ contract WayfinderTest is Test {
 
         // Collector should be able to add URIs (they own the token)
         vm.prank(collector, collector);
-        wayfinder.addArtworkUris(address(mockERC721), TEST_TOKEN_ID, newUris);
+        muriProtocol.addArtworkUris(address(mockERC721), TEST_TOKEN_ID, newUris);
 
         // Stranger should not be able to add URIs (they don't own the token)
         vm.prank(stranger, stranger);
-        vm.expectRevert(abi.encodeWithSelector(IWayfinder.NotTokenOwnerOrAdmin.selector));
-        wayfinder.addArtworkUris(address(mockERC721), TEST_TOKEN_ID, newUris);
+        vm.expectRevert(abi.encodeWithSelector(IMURIProtocol.NotTokenOwnerOrAdmin.selector));
+        muriProtocol.addArtworkUris(address(mockERC721), TEST_TOKEN_ID, newUris);
     }
 
     function test_isTokenOwner_ERC1155() public {
-        // Test token ownership through the actual Wayfinder contract
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        // Test token ownership through the actual MURI Protocol contract
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
 
         vm.prank(artist, artist);
         extension.initializeTokenData(address(mockERC1155), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
@@ -274,17 +274,17 @@ contract WayfinderTest is Test {
 
         // Collector should be able to add URIs (they own the token)
         vm.prank(collector, collector);
-        wayfinder.addArtworkUris(address(mockERC1155), TEST_TOKEN_ID, newUris);
+        muriProtocol.addArtworkUris(address(mockERC1155), TEST_TOKEN_ID, newUris);
 
         // Stranger should not be able to add URIs (they don't own the token)
         vm.prank(stranger, stranger);
-        vm.expectRevert(abi.encodeWithSelector(IWayfinder.NotTokenOwnerOrAdmin.selector));
-        wayfinder.addArtworkUris(address(mockERC1155), TEST_TOKEN_ID, newUris);
+        vm.expectRevert(abi.encodeWithSelector(IMURIProtocol.NotTokenOwnerOrAdmin.selector));
+        muriProtocol.addArtworkUris(address(mockERC1155), TEST_TOKEN_ID, newUris);
     }
 
     function test_isTokenOwner_Custom() public {
-        // Test custom ownership through the actual Wayfinder contract
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        // Test custom ownership through the actual MURI Protocol contract
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
 
         // Need to make artist admin of mockCustomOwnership for initialization
         vm.prank(owner, owner);
@@ -292,7 +292,7 @@ contract WayfinderTest is Test {
 
         // Register the custom ownership contract
         vm.prank(artist, artist);
-        wayfinder.registerContract(address(mockCustomOwnership), address(extension));
+        muriProtocol.registerContract(address(mockCustomOwnership), address(extension));
 
         vm.prank(artist, artist);
         extension.initializeTokenData(
@@ -305,12 +305,12 @@ contract WayfinderTest is Test {
 
         // Collector should be able to add URIs (they are set as the owner in mockCustomOwnership)
         vm.prank(collector, collector);
-        wayfinder.addArtworkUris(address(mockCustomOwnership), TEST_TOKEN_ID, newUris);
+        muriProtocol.addArtworkUris(address(mockCustomOwnership), TEST_TOKEN_ID, newUris);
 
         // Stranger should not be able to add URIs (they don't own the token)
         vm.prank(stranger, stranger);
-        vm.expectRevert(abi.encodeWithSelector(IWayfinder.NotTokenOwnerOrAdmin.selector));
-        wayfinder.addArtworkUris(address(mockCustomOwnership), TEST_TOKEN_ID, newUris);
+        vm.expectRevert(abi.encodeWithSelector(IMURIProtocol.NotTokenOwnerOrAdmin.selector));
+        muriProtocol.addArtworkUris(address(mockCustomOwnership), TEST_TOKEN_ID, newUris);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -318,7 +318,7 @@ contract WayfinderTest is Test {
     //////////////////////////////////////////////////////////////*/
 
     function test_initializeTokenData_OnlyByAdmin() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
 
         vm.prank(stranger, stranger);
         vm.expectRevert("Not admin");
@@ -330,7 +330,7 @@ contract WayfinderTest is Test {
     }
 
     function test_initializeTokenData_FullWorkflow() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
 
         vm.prank(artist, artist);
         vm.recordLogs();
@@ -342,10 +342,10 @@ contract WayfinderTest is Test {
         assertEq(logs[0].topics[0], keccak256("TokenDataInitialized(address,uint256)"));
 
         // Verify stored data
-        (string memory metadata,,,,,) = wayfinder.tokenData(address(adminControl), TEST_TOKEN_ID);
+        (string memory metadata,,,,,) = muriProtocol.tokenData(address(adminControl), TEST_TOKEN_ID);
         assertEq(metadata, TEST_METADATA);
 
-        IWayfinder.Artwork memory artwork = wayfinder.getArtwork(address(adminControl), TEST_TOKEN_ID);
+        IMURIProtocol.Artwork memory artwork = muriProtocol.getArtwork(address(adminControl), TEST_TOKEN_ID);
         assertEq(artwork.artistUris.length, 2);
         assertEq(artwork.artistUris[0], "https://artist1.com");
         assertEq(artwork.mimeType, "image/png");
@@ -357,8 +357,8 @@ contract WayfinderTest is Test {
 
     function test_resolveThumbnailUri_OnChain() public {
         // Test on-chain thumbnail resolution through public renderImage function
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
-        config.thumbnail.kind = IWayfinder.ThumbnailKind.ON_CHAIN;
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
+        config.thumbnail.kind = IMURIProtocol.ThumbnailKind.ON_CHAIN;
         config.thumbnail.onChain.mimeType = "image/png";
         config.thumbnail.onChain.zipped = false;
 
@@ -367,7 +367,7 @@ contract WayfinderTest is Test {
         vm.prank(artist, artist);
         extension.initializeTokenData(address(adminControl), TEST_TOKEN_ID, config, chunks, new string[](0));
 
-        string memory result = wayfinder.renderImage(address(adminControl), TEST_TOKEN_ID);
+        string memory result = muriProtocol.renderImage(address(adminControl), TEST_TOKEN_ID);
         assertTrue(bytes(result).length > 0);
         // Should start with "data:image/png;base64,"
         assertEq(bytes(result)[0], bytes1("d"));
@@ -378,12 +378,12 @@ contract WayfinderTest is Test {
 
     function test_resolveThumbnailUri_OffChain() public {
         // Test off-chain thumbnail resolution through public renderImage function
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
 
         vm.prank(artist, artist);
         extension.initializeTokenData(address(adminControl), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
 
-        string memory result = wayfinder.renderImage(address(adminControl), TEST_TOKEN_ID);
+        string memory result = muriProtocol.renderImage(address(adminControl), TEST_TOKEN_ID);
         assertEq(result, "https://thumb1.com");
     }
 
@@ -392,7 +392,7 @@ contract WayfinderTest is Test {
     //////////////////////////////////////////////////////////////*/
 
     function test_combinedArtworkUris() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
 
         vm.prank(artist, artist);
         extension.initializeTokenData(address(mockERC721), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
@@ -402,9 +402,9 @@ contract WayfinderTest is Test {
         collectorUris[0] = "https://collector1.com";
 
         vm.prank(collector, collector);
-        wayfinder.addArtworkUris(address(mockERC721), TEST_TOKEN_ID, collectorUris);
+        muriProtocol.addArtworkUris(address(mockERC721), TEST_TOKEN_ID, collectorUris);
 
-        string memory result = wayfinder.getCombinedArtworkUris(address(mockERC721), TEST_TOKEN_ID);
+        string memory result = muriProtocol.getCombinedArtworkUris(address(mockERC721), TEST_TOKEN_ID);
         assertEq(result, '"https://artist1.com","https://artist2.com","https://collector1.com"');
     }
 
@@ -414,8 +414,8 @@ contract WayfinderTest is Test {
 
     function test_loadOnChainThumbnail_Unzipped() public {
         // Test on-chain thumbnail loading through public renderRawImage function
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
-        config.thumbnail.kind = IWayfinder.ThumbnailKind.ON_CHAIN;
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
+        config.thumbnail.kind = IMURIProtocol.ThumbnailKind.ON_CHAIN;
         config.thumbnail.onChain.mimeType = "image/png";
         config.thumbnail.onChain.zipped = false;
 
@@ -424,7 +424,7 @@ contract WayfinderTest is Test {
         vm.prank(artist, artist);
         extension.initializeTokenData(address(adminControl), TEST_TOKEN_ID, config, chunks, new string[](0));
 
-        bytes memory result = wayfinder.renderRawImage(address(adminControl), TEST_TOKEN_ID);
+        bytes memory result = muriProtocol.renderRawImage(address(adminControl), TEST_TOKEN_ID);
         assertEq(result, abi.encodePacked(chunks[0], chunks[1]));
     }
 
@@ -436,15 +436,15 @@ contract WayfinderTest is Test {
         bytes[] memory chunks = new bytes[](1);
         chunks[0] = compressedData;
 
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
-        config.thumbnail.kind = IWayfinder.ThumbnailKind.ON_CHAIN;
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
+        config.thumbnail.kind = IMURIProtocol.ThumbnailKind.ON_CHAIN;
         config.thumbnail.onChain.mimeType = "image/png";
         config.thumbnail.onChain.zipped = true;
 
         vm.prank(artist, artist);
         extension.initializeTokenData(address(adminControl), TEST_TOKEN_ID, config, chunks, new string[](0));
 
-        bytes memory result = wayfinder.renderRawImage(address(adminControl), TEST_TOKEN_ID);
+        bytes memory result = muriProtocol.renderRawImage(address(adminControl), TEST_TOKEN_ID);
         assertEq(result, originalData);
     }
 
@@ -453,42 +453,42 @@ contract WayfinderTest is Test {
     //////////////////////////////////////////////////////////////*/
 
     function test_updateMetadata_OnlyByAdmin() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
 
         vm.prank(artist, artist);
         extension.initializeTokenData(address(adminControl), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
 
         vm.prank(stranger, stranger);
-        vm.expectRevert(abi.encodeWithSelector(IWayfinder.WalletNotAdmin.selector));
-        wayfinder.updateMetadata(address(adminControl), TEST_TOKEN_ID, "new metadata");
+        vm.expectRevert(abi.encodeWithSelector(IMURIProtocol.WalletNotAdmin.selector));
+        muriProtocol.updateMetadata(address(adminControl), TEST_TOKEN_ID, "new metadata");
     }
 
     function test_updateMetadata_PermissionRevoked() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
 
         vm.prank(artist, artist);
         extension.initializeTokenData(address(adminControl), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
 
         // Revoke metadata update permission
         vm.prank(artist, artist);
-        wayfinder.revokeArtistPermissions(
+        muriProtocol.revokeArtistPermissions(
             address(adminControl), TEST_TOKEN_ID, false, true, false, false, false, false, false
         );
 
         vm.prank(artist, artist);
-        vm.expectRevert(abi.encodeWithSelector(IWayfinder.ArtistPermissionRevoked.selector));
-        wayfinder.updateMetadata(address(adminControl), TEST_TOKEN_ID, "new metadata");
+        vm.expectRevert(abi.encodeWithSelector(IMURIProtocol.ArtistPermissionRevoked.selector));
+        muriProtocol.updateMetadata(address(adminControl), TEST_TOKEN_ID, "new metadata");
     }
 
     function test_updateMetadata_Success() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
 
         vm.prank(artist, artist);
         extension.initializeTokenData(address(adminControl), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
 
         vm.prank(artist, artist);
         vm.recordLogs();
-        wayfinder.updateMetadata(address(adminControl), TEST_TOKEN_ID, "new metadata");
+        muriProtocol.updateMetadata(address(adminControl), TEST_TOKEN_ID, "new metadata");
 
         // Verify event
         Vm.Log[] memory logs = vm.getRecordedLogs();
@@ -496,7 +496,7 @@ contract WayfinderTest is Test {
         assertEq(logs[0].topics[0], keccak256("MetadataUpdated(address,uint256)"));
 
         // Verify metadata changed
-        (string memory metadata,,,,,) = wayfinder.tokenData(address(adminControl), TEST_TOKEN_ID);
+        (string memory metadata,,,,,) = muriProtocol.tokenData(address(adminControl), TEST_TOKEN_ID);
         assertEq(metadata, "new metadata");
     }
 
@@ -505,7 +505,7 @@ contract WayfinderTest is Test {
     //////////////////////////////////////////////////////////////*/
 
     function test_updateHtmlTemplate_OnlyByAdmin() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
 
         vm.prank(artist, artist);
         extension.initializeTokenData(address(adminControl), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
@@ -514,19 +514,19 @@ contract WayfinderTest is Test {
         templateParts[0] = "<html>new template</html>";
 
         vm.prank(stranger, stranger);
-        vm.expectRevert(abi.encodeWithSelector(IWayfinder.WalletNotAdmin.selector));
-        wayfinder.updateHtmlTemplate(address(adminControl), TEST_TOKEN_ID, templateParts, false);
+        vm.expectRevert(abi.encodeWithSelector(IMURIProtocol.WalletNotAdmin.selector));
+        muriProtocol.updateHtmlTemplate(address(adminControl), TEST_TOKEN_ID, templateParts, false);
     }
 
     function test_updateHtmlTemplate_PermissionRevoked() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
 
         vm.prank(artist, artist);
         extension.initializeTokenData(address(adminControl), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
 
         // Revoke template update permission
         vm.prank(artist, artist);
-        wayfinder.revokeArtistPermissions(
+        muriProtocol.revokeArtistPermissions(
             address(adminControl), TEST_TOKEN_ID, false, false, false, false, false, false, true
         );
 
@@ -534,12 +534,12 @@ contract WayfinderTest is Test {
         templateParts[0] = "<html>new template</html>";
 
         vm.prank(artist, artist);
-        vm.expectRevert(abi.encodeWithSelector(IWayfinder.ArtistPermissionRevoked.selector));
-        wayfinder.updateHtmlTemplate(address(adminControl), TEST_TOKEN_ID, templateParts, false);
+        vm.expectRevert(abi.encodeWithSelector(IMURIProtocol.ArtistPermissionRevoked.selector));
+        muriProtocol.updateHtmlTemplate(address(adminControl), TEST_TOKEN_ID, templateParts, false);
     }
 
     function test_updateHtmlTemplate_Success() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
 
         vm.prank(artist, artist);
         extension.initializeTokenData(address(adminControl), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
@@ -549,7 +549,7 @@ contract WayfinderTest is Test {
 
         vm.prank(artist, artist);
         vm.recordLogs();
-        wayfinder.updateHtmlTemplate(address(adminControl), TEST_TOKEN_ID, templateParts, false);
+        muriProtocol.updateHtmlTemplate(address(adminControl), TEST_TOKEN_ID, templateParts, false);
 
         // Verify event
         Vm.Log[] memory logs = vm.getRecordedLogs();
@@ -557,12 +557,12 @@ contract WayfinderTest is Test {
         assertEq(logs[0].topics[0], keccak256("HtmlTemplateUpdated()"));
 
         // Verify template changed
-        string memory template = wayfinder.getTokenHtmlTemplate(address(adminControl), TEST_TOKEN_ID);
+        string memory template = muriProtocol.getTokenHtmlTemplate(address(adminControl), TEST_TOKEN_ID);
         assertEq(template, "<html>new template</html>");
     }
 
     function test_updateHtmlTemplate_ResetToDefault() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
 
         vm.prank(artist, artist);
         extension.initializeTokenData(address(adminControl), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
@@ -572,16 +572,16 @@ contract WayfinderTest is Test {
         templateParts[0] = "<html>custom template</html>";
 
         vm.prank(artist, artist);
-        wayfinder.updateHtmlTemplate(address(adminControl), TEST_TOKEN_ID, templateParts, false);
+        muriProtocol.updateHtmlTemplate(address(adminControl), TEST_TOKEN_ID, templateParts, false);
 
         // Then reset to default with empty array
         string[] memory emptyParts = new string[](0);
 
         vm.prank(artist, artist);
-        wayfinder.updateHtmlTemplate(address(adminControl), TEST_TOKEN_ID, emptyParts, false);
+        muriProtocol.updateHtmlTemplate(address(adminControl), TEST_TOKEN_ID, emptyParts, false);
 
         // Should return empty string indicating default template is used
-        string memory template = wayfinder.getTokenHtmlTemplate(address(adminControl), TEST_TOKEN_ID);
+        string memory template = muriProtocol.getTokenHtmlTemplate(address(adminControl), TEST_TOKEN_ID);
         assertEq(template, "");
     }
 
@@ -590,39 +590,39 @@ contract WayfinderTest is Test {
     //////////////////////////////////////////////////////////////*/
 
     function test_updateThumbnail_OnlyByAdmin() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
 
         vm.prank(artist, artist);
         extension.initializeTokenData(address(adminControl), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
 
-        IWayfinder.Thumbnail memory newThumbnail = config.thumbnail;
+        IMURIProtocol.Thumbnail memory newThumbnail = config.thumbnail;
 
         vm.prank(stranger, stranger);
-        vm.expectRevert(abi.encodeWithSelector(IWayfinder.WalletNotAdmin.selector));
-        wayfinder.updateThumbnail(address(adminControl), TEST_TOKEN_ID, newThumbnail, new bytes[](0));
+        vm.expectRevert(abi.encodeWithSelector(IMURIProtocol.WalletNotAdmin.selector));
+        muriProtocol.updateThumbnail(address(adminControl), TEST_TOKEN_ID, newThumbnail, new bytes[](0));
     }
 
     function test_updateThumbnail_PermissionRevoked() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
 
         vm.prank(artist, artist);
         extension.initializeTokenData(address(adminControl), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
 
         // Revoke thumbnail update permission
         vm.prank(artist, artist);
-        wayfinder.revokeArtistPermissions(
+        muriProtocol.revokeArtistPermissions(
             address(adminControl), TEST_TOKEN_ID, true, false, false, false, false, false, false
         );
 
-        IWayfinder.Thumbnail memory newThumbnail = config.thumbnail;
+        IMURIProtocol.Thumbnail memory newThumbnail = config.thumbnail;
 
         vm.prank(artist, artist);
-        vm.expectRevert(abi.encodeWithSelector(IWayfinder.ArtistPermissionRevoked.selector));
-        wayfinder.updateThumbnail(address(adminControl), TEST_TOKEN_ID, newThumbnail, new bytes[](0));
+        vm.expectRevert(abi.encodeWithSelector(IMURIProtocol.ArtistPermissionRevoked.selector));
+        muriProtocol.updateThumbnail(address(adminControl), TEST_TOKEN_ID, newThumbnail, new bytes[](0));
     }
 
     function test_updateThumbnail_Success() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
 
         vm.prank(artist, artist);
         extension.initializeTokenData(address(adminControl), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
@@ -631,14 +631,14 @@ contract WayfinderTest is Test {
         string[] memory newUris = new string[](1);
         newUris[0] = "https://newthumb.com";
 
-        IWayfinder.Thumbnail memory newThumbnail;
-        newThumbnail.kind = IWayfinder.ThumbnailKind.OFF_CHAIN;
+        IMURIProtocol.Thumbnail memory newThumbnail;
+        newThumbnail.kind = IMURIProtocol.ThumbnailKind.OFF_CHAIN;
         newThumbnail.offChain.uris = newUris;
         newThumbnail.offChain.selectedUriIndex = 0;
 
         vm.prank(artist, artist);
         vm.recordLogs();
-        wayfinder.updateThumbnail(address(adminControl), TEST_TOKEN_ID, newThumbnail, new bytes[](0));
+        muriProtocol.updateThumbnail(address(adminControl), TEST_TOKEN_ID, newThumbnail, new bytes[](0));
 
         // Verify event
         Vm.Log[] memory logs = vm.getRecordedLogs();
@@ -646,25 +646,26 @@ contract WayfinderTest is Test {
         assertEq(logs[0].topics[0], keccak256("ThumbnailUpdated(address,uint256)"));
 
         // Verify thumbnail changed
-        string[] memory uris = wayfinder.getThumbnailUris(address(adminControl), TEST_TOKEN_ID);
+        string[] memory uris = muriProtocol.getThumbnailUris(address(adminControl), TEST_TOKEN_ID);
         assertEq(uris.length, 1);
         assertEq(uris[0], "https://newthumb.com");
     }
 
     function test_updateThumbnail_InvalidOnChainData() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
 
         vm.prank(artist, artist);
         extension.initializeTokenData(address(adminControl), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
 
-        IWayfinder.Thumbnail memory newThumbnail;
-        newThumbnail.kind = IWayfinder.ThumbnailKind.ON_CHAIN;
+        IMURIProtocol.Thumbnail memory newThumbnail;
+        newThumbnail.kind = IMURIProtocol.ThumbnailKind.ON_CHAIN;
         newThumbnail.onChain.mimeType = "image/png";
         newThumbnail.onChain.zipped = false;
 
         vm.prank(artist, artist);
-        vm.expectRevert(abi.encodeWithSelector(IWayfinder.InvalidIndexRange.selector));
-        wayfinder.updateThumbnail(address(adminControl), TEST_TOKEN_ID, newThumbnail, new bytes[](0)); // Empty chunks
+        vm.expectRevert(abi.encodeWithSelector(IMURIProtocol.InvalidIndexRange.selector));
+        muriProtocol.updateThumbnail(address(adminControl), TEST_TOKEN_ID, newThumbnail, new bytes[](0)); // Empty
+            // chunks
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -672,7 +673,7 @@ contract WayfinderTest is Test {
     //////////////////////////////////////////////////////////////*/
 
     function test_addArtworkUris_OnlyArtistOrCollector() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
 
         vm.prank(artist, artist);
         extension.initializeTokenData(address(adminControl), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
@@ -681,12 +682,12 @@ contract WayfinderTest is Test {
         newUris[0] = "https://new.com";
 
         vm.prank(stranger, stranger);
-        vm.expectRevert(abi.encodeWithSelector(IWayfinder.NotTokenOwnerOrAdmin.selector));
-        wayfinder.addArtworkUris(address(adminControl), TEST_TOKEN_ID, newUris);
+        vm.expectRevert(abi.encodeWithSelector(IMURIProtocol.NotTokenOwnerOrAdmin.selector));
+        muriProtocol.addArtworkUris(address(adminControl), TEST_TOKEN_ID, newUris);
     }
 
     function test_addArtworkUris_Artist() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
 
         vm.prank(artist, artist);
         extension.initializeTokenData(address(adminControl), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
@@ -696,7 +697,7 @@ contract WayfinderTest is Test {
 
         vm.prank(artist, artist);
         vm.recordLogs();
-        wayfinder.addArtworkUris(address(adminControl), TEST_TOKEN_ID, newUris);
+        muriProtocol.addArtworkUris(address(adminControl), TEST_TOKEN_ID, newUris);
 
         // Verify event
         Vm.Log[] memory logs = vm.getRecordedLogs();
@@ -704,13 +705,13 @@ contract WayfinderTest is Test {
         assertEq(logs[0].topics[0], keccak256("ArtworkUrisAdded(address,uint256,address,uint256)"));
 
         // Verify URI added to artist array
-        string[] memory artistUris = wayfinder.getArtistArtworkUris(address(adminControl), TEST_TOKEN_ID);
+        string[] memory artistUris = muriProtocol.getArtistArtworkUris(address(adminControl), TEST_TOKEN_ID);
         assertEq(artistUris.length, 3); // 2 original + 1 new
         assertEq(artistUris[2], "https://newartist.com");
     }
 
     function test_addArtworkUris_Collector() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
 
         vm.prank(artist, artist);
         extension.initializeTokenData(address(mockERC721), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
@@ -719,16 +720,16 @@ contract WayfinderTest is Test {
         newUris[0] = "https://newcollector.com";
 
         vm.prank(collector, collector);
-        wayfinder.addArtworkUris(address(mockERC721), TEST_TOKEN_ID, newUris);
+        muriProtocol.addArtworkUris(address(mockERC721), TEST_TOKEN_ID, newUris);
 
         // Verify URI added to collector array
-        string[] memory collectorUris = wayfinder.getCollectorArtworkUris(address(mockERC721), TEST_TOKEN_ID);
+        string[] memory collectorUris = muriProtocol.getCollectorArtworkUris(address(mockERC721), TEST_TOKEN_ID);
         assertEq(collectorUris.length, 1);
         assertEq(collectorUris[0], "https://newcollector.com");
     }
 
     function test_addArtworkUris_PermissionDenied() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
         config.permissions.flags = config.permissions.flags & ~ARTIST_ADD_REMOVE;
 
         vm.prank(artist, artist);
@@ -738,8 +739,8 @@ contract WayfinderTest is Test {
         newUris[0] = "https://new.com";
 
         vm.prank(artist, artist);
-        vm.expectRevert(abi.encodeWithSelector(IWayfinder.ArtistPermissionRevoked.selector));
-        wayfinder.addArtworkUris(address(adminControl), TEST_TOKEN_ID, newUris);
+        vm.expectRevert(abi.encodeWithSelector(IMURIProtocol.ArtistPermissionRevoked.selector));
+        muriProtocol.addArtworkUris(address(adminControl), TEST_TOKEN_ID, newUris);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -747,7 +748,7 @@ contract WayfinderTest is Test {
     //////////////////////////////////////////////////////////////*/
 
     function test_revokeArtistPermissions_Individual() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
 
         vm.prank(artist, artist);
         extension.initializeTokenData(address(adminControl), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
@@ -755,7 +756,7 @@ contract WayfinderTest is Test {
         // Revoke metadata permission
         vm.prank(artist, artist);
         vm.recordLogs();
-        wayfinder.revokeArtistPermissions(
+        muriProtocol.revokeArtistPermissions(
             address(adminControl), TEST_TOKEN_ID, false, true, false, false, false, false, false
         );
 
@@ -766,32 +767,33 @@ contract WayfinderTest is Test {
 
         // Verify permission is revoked
         vm.prank(artist, artist);
-        vm.expectRevert(abi.encodeWithSelector(IWayfinder.ArtistPermissionRevoked.selector));
-        wayfinder.updateMetadata(address(adminControl), TEST_TOKEN_ID, "new metadata");
+        vm.expectRevert(abi.encodeWithSelector(IMURIProtocol.ArtistPermissionRevoked.selector));
+        muriProtocol.updateMetadata(address(adminControl), TEST_TOKEN_ID, "new metadata");
 
         // Verify other permissions still work
         vm.prank(artist, artist);
-        wayfinder.setDisplayMode(address(adminControl), TEST_TOKEN_ID, IWayfinder.DisplayMode.HTML); // Should still
+        muriProtocol.setDisplayMode(address(adminControl), TEST_TOKEN_ID, IMURIProtocol.DisplayMode.HTML); // Should
+            // still
             // work
     }
 
     function test_revokeAllArtistPermissions() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
 
         vm.prank(artist, artist);
         extension.initializeTokenData(address(adminControl), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
 
         vm.prank(artist, artist);
-        wayfinder.revokeAllArtistPermissions(address(adminControl), TEST_TOKEN_ID);
+        muriProtocol.revokeAllArtistPermissions(address(adminControl), TEST_TOKEN_ID);
 
         // Verify all artist permissions are revoked
         vm.prank(artist, artist);
-        vm.expectRevert(abi.encodeWithSelector(IWayfinder.ArtistPermissionRevoked.selector));
-        wayfinder.updateMetadata(address(adminControl), TEST_TOKEN_ID, "new metadata");
+        vm.expectRevert(abi.encodeWithSelector(IMURIProtocol.ArtistPermissionRevoked.selector));
+        muriProtocol.updateMetadata(address(adminControl), TEST_TOKEN_ID, "new metadata");
 
         vm.prank(artist, artist);
-        vm.expectRevert(abi.encodeWithSelector(IWayfinder.ArtistPermissionRevoked.selector));
-        wayfinder.setDisplayMode(address(adminControl), TEST_TOKEN_ID, IWayfinder.DisplayMode.HTML);
+        vm.expectRevert(abi.encodeWithSelector(IMURIProtocol.ArtistPermissionRevoked.selector));
+        muriProtocol.setDisplayMode(address(adminControl), TEST_TOKEN_ID, IMURIProtocol.DisplayMode.HTML);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -799,7 +801,7 @@ contract WayfinderTest is Test {
     //////////////////////////////////////////////////////////////*/
 
     function test_removeArtworkUris_OnlyArtistOrCollector() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
 
         vm.prank(artist, artist);
         extension.initializeTokenData(address(adminControl), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
@@ -808,12 +810,12 @@ contract WayfinderTest is Test {
         indices[0] = 0;
 
         vm.prank(stranger, stranger);
-        vm.expectRevert(abi.encodeWithSelector(IWayfinder.NotTokenOwnerOrAdmin.selector));
-        wayfinder.removeArtworkUris(address(adminControl), TEST_TOKEN_ID, indices);
+        vm.expectRevert(abi.encodeWithSelector(IMURIProtocol.NotTokenOwnerOrAdmin.selector));
+        muriProtocol.removeArtworkUris(address(adminControl), TEST_TOKEN_ID, indices);
     }
 
     function test_removeArtworkUris_Artist() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
 
         vm.prank(artist, artist);
         extension.initializeTokenData(address(adminControl), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
@@ -823,7 +825,7 @@ contract WayfinderTest is Test {
 
         vm.prank(artist, artist);
         vm.recordLogs();
-        wayfinder.removeArtworkUris(address(adminControl), TEST_TOKEN_ID, indices);
+        muriProtocol.removeArtworkUris(address(adminControl), TEST_TOKEN_ID, indices);
 
         // Verify event
         Vm.Log[] memory logs = vm.getRecordedLogs();
@@ -831,12 +833,12 @@ contract WayfinderTest is Test {
         assertEq(logs[0].topics[0], keccak256("ArtworkUriRemoved(address,uint256,address,uint256)"));
 
         // Verify URI removed
-        string[] memory artistUris = wayfinder.getArtistArtworkUris(address(adminControl), TEST_TOKEN_ID);
+        string[] memory artistUris = muriProtocol.getArtistArtworkUris(address(adminControl), TEST_TOKEN_ID);
         assertEq(artistUris.length, 1);
     }
 
     function test_removeArtworkUris_SelectedIndexUpdate() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
         config.artwork.selectedArtistUriIndex = 1; // Select second URI
 
         vm.prank(artist, artist);
@@ -846,15 +848,15 @@ contract WayfinderTest is Test {
         indices[0] = 1; // Remove the selected URI
 
         vm.prank(artist, artist);
-        wayfinder.removeArtworkUris(address(adminControl), TEST_TOKEN_ID, indices);
+        muriProtocol.removeArtworkUris(address(adminControl), TEST_TOKEN_ID, indices);
 
         // Selected index should be updated to stay within bounds
-        IWayfinder.Artwork memory artwork = wayfinder.getArtwork(address(adminControl), TEST_TOKEN_ID);
+        IMURIProtocol.Artwork memory artwork = muriProtocol.getArtwork(address(adminControl), TEST_TOKEN_ID);
         assertEq(artwork.selectedArtistUriIndex, 0);
     }
 
     function test_removeArtworkUris_PermissionDenied() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
         config.permissions.flags = config.permissions.flags & ~ARTIST_ADD_REMOVE;
 
         vm.prank(artist, artist);
@@ -864,8 +866,8 @@ contract WayfinderTest is Test {
         indices[0] = 0;
 
         vm.prank(artist, artist);
-        vm.expectRevert(abi.encodeWithSelector(IWayfinder.ArtistPermissionRevoked.selector));
-        wayfinder.removeArtworkUris(address(adminControl), TEST_TOKEN_ID, indices);
+        vm.expectRevert(abi.encodeWithSelector(IMURIProtocol.ArtistPermissionRevoked.selector));
+        muriProtocol.removeArtworkUris(address(adminControl), TEST_TOKEN_ID, indices);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -873,25 +875,25 @@ contract WayfinderTest is Test {
     //////////////////////////////////////////////////////////////*/
 
     function test_setSelectedUri_OnlyArtistOrCollector() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
 
         vm.prank(artist, artist);
         extension.initializeTokenData(address(adminControl), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
 
         vm.prank(stranger, stranger);
-        vm.expectRevert(abi.encodeWithSelector(IWayfinder.NotTokenOwnerOrAdmin.selector));
-        wayfinder.setSelectedUri(address(adminControl), TEST_TOKEN_ID, 1);
+        vm.expectRevert(abi.encodeWithSelector(IMURIProtocol.NotTokenOwnerOrAdmin.selector));
+        muriProtocol.setSelectedUri(address(adminControl), TEST_TOKEN_ID, 1);
     }
 
     function test_setSelectedUri_Artist() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
 
         vm.prank(artist, artist);
         extension.initializeTokenData(address(adminControl), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
 
         vm.prank(artist, artist);
         vm.recordLogs();
-        wayfinder.setSelectedUri(address(adminControl), TEST_TOKEN_ID, 1);
+        muriProtocol.setSelectedUri(address(adminControl), TEST_TOKEN_ID, 1);
 
         // Verify event
         Vm.Log[] memory logs = vm.getRecordedLogs();
@@ -899,31 +901,31 @@ contract WayfinderTest is Test {
         assertEq(logs[0].topics[0], keccak256("SelectedArtworkUriChanged(address,uint256,uint256)"));
 
         // Verify selection changed
-        IWayfinder.Artwork memory artwork = wayfinder.getArtwork(address(adminControl), TEST_TOKEN_ID);
+        IMURIProtocol.Artwork memory artwork = muriProtocol.getArtwork(address(adminControl), TEST_TOKEN_ID);
         assertEq(artwork.selectedArtistUriIndex, 1);
     }
 
     function test_setSelectedUri_OutOfRange() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
 
         vm.prank(artist, artist);
         extension.initializeTokenData(address(adminControl), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
 
         vm.prank(artist, artist);
-        vm.expectRevert(abi.encodeWithSelector(IWayfinder.InvalidIndexRange.selector));
-        wayfinder.setSelectedUri(address(adminControl), TEST_TOKEN_ID, 999);
+        vm.expectRevert(abi.encodeWithSelector(IMURIProtocol.InvalidIndexRange.selector));
+        muriProtocol.setSelectedUri(address(adminControl), TEST_TOKEN_ID, 999);
     }
 
     function test_setSelectedUri_PermissionDenied() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
         config.permissions.flags = config.permissions.flags & ~ARTIST_CHOOSE_URIS;
 
         vm.prank(artist, artist);
         extension.initializeTokenData(address(adminControl), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
 
         vm.prank(artist, artist);
-        vm.expectRevert(abi.encodeWithSelector(IWayfinder.ArtistPermissionRevoked.selector));
-        wayfinder.setSelectedUri(address(adminControl), TEST_TOKEN_ID, 1);
+        vm.expectRevert(abi.encodeWithSelector(IMURIProtocol.ArtistPermissionRevoked.selector));
+        muriProtocol.setSelectedUri(address(adminControl), TEST_TOKEN_ID, 1);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -931,25 +933,25 @@ contract WayfinderTest is Test {
     //////////////////////////////////////////////////////////////*/
 
     function test_setSelectedThumbnailUri_OnlyArtistOrCollector() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
 
         vm.prank(artist, artist);
         extension.initializeTokenData(address(adminControl), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
 
         vm.prank(stranger, stranger);
-        vm.expectRevert(abi.encodeWithSelector(IWayfinder.NotTokenOwnerOrAdmin.selector));
-        wayfinder.setSelectedThumbnailUri(address(adminControl), TEST_TOKEN_ID, 1);
+        vm.expectRevert(abi.encodeWithSelector(IMURIProtocol.NotTokenOwnerOrAdmin.selector));
+        muriProtocol.setSelectedThumbnailUri(address(adminControl), TEST_TOKEN_ID, 1);
     }
 
     function test_setSelectedThumbnailUri_Success() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
 
         vm.prank(artist, artist);
         extension.initializeTokenData(address(adminControl), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
 
         vm.prank(artist, artist);
         vm.recordLogs();
-        wayfinder.setSelectedThumbnailUri(address(adminControl), TEST_TOKEN_ID, 1);
+        muriProtocol.setSelectedThumbnailUri(address(adminControl), TEST_TOKEN_ID, 1);
 
         // Verify event
         Vm.Log[] memory logs = vm.getRecordedLogs();
@@ -957,13 +959,13 @@ contract WayfinderTest is Test {
         assertEq(logs[0].topics[0], keccak256("SelectedThumbnailUriChanged(address,uint256,uint256)"));
 
         // Verify selection changed
-        (, uint256 selectedIndex) = wayfinder.getThumbnailInfo(address(adminControl), TEST_TOKEN_ID);
+        (, uint256 selectedIndex) = muriProtocol.getThumbnailInfo(address(adminControl), TEST_TOKEN_ID);
         assertEq(selectedIndex, 1);
     }
 
     function test_setSelectedThumbnailUri_OnlyOffChain() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
-        config.thumbnail.kind = IWayfinder.ThumbnailKind.ON_CHAIN;
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
+        config.thumbnail.kind = IMURIProtocol.ThumbnailKind.ON_CHAIN;
         config.thumbnail.onChain.mimeType = "image/png";
         config.thumbnail.onChain.zipped = false;
 
@@ -973,8 +975,8 @@ contract WayfinderTest is Test {
         );
 
         vm.prank(artist, artist);
-        vm.expectRevert(abi.encodeWithSelector(IWayfinder.InvalidThumbnailKind.selector));
-        wayfinder.setSelectedThumbnailUri(address(adminControl), TEST_TOKEN_ID, 0);
+        vm.expectRevert(abi.encodeWithSelector(IMURIProtocol.InvalidThumbnailKind.selector));
+        muriProtocol.setSelectedThumbnailUri(address(adminControl), TEST_TOKEN_ID, 0);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -982,25 +984,25 @@ contract WayfinderTest is Test {
     //////////////////////////////////////////////////////////////*/
 
     function test_setDisplayMode_OnlyArtistOrCollector() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
 
         vm.prank(artist, artist);
         extension.initializeTokenData(address(adminControl), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
 
         vm.prank(stranger, stranger);
-        vm.expectRevert(abi.encodeWithSelector(IWayfinder.NotTokenOwnerOrAdmin.selector));
-        wayfinder.setDisplayMode(address(adminControl), TEST_TOKEN_ID, IWayfinder.DisplayMode.HTML);
+        vm.expectRevert(abi.encodeWithSelector(IMURIProtocol.NotTokenOwnerOrAdmin.selector));
+        muriProtocol.setDisplayMode(address(adminControl), TEST_TOKEN_ID, IMURIProtocol.DisplayMode.HTML);
     }
 
     function test_setDisplayMode_Success() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
 
         vm.prank(artist, artist);
         extension.initializeTokenData(address(adminControl), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
 
         vm.prank(artist, artist);
         vm.recordLogs();
-        wayfinder.setDisplayMode(address(adminControl), TEST_TOKEN_ID, IWayfinder.DisplayMode.HTML);
+        muriProtocol.setDisplayMode(address(adminControl), TEST_TOKEN_ID, IMURIProtocol.DisplayMode.HTML);
 
         // Verify event
         Vm.Log[] memory logs = vm.getRecordedLogs();
@@ -1008,20 +1010,20 @@ contract WayfinderTest is Test {
         assertEq(logs[0].topics[0], keccak256("DisplayModeUpdated(address,uint256,uint8)"));
 
         // Verify display mode changed
-        (,,,, IWayfinder.DisplayMode displayMode,) = wayfinder.tokenData(address(adminControl), TEST_TOKEN_ID);
-        assertEq(uint8(displayMode), uint8(IWayfinder.DisplayMode.HTML));
+        (,,,, IMURIProtocol.DisplayMode displayMode,) = muriProtocol.tokenData(address(adminControl), TEST_TOKEN_ID);
+        assertEq(uint8(displayMode), uint8(IMURIProtocol.DisplayMode.HTML));
     }
 
     function test_setDisplayMode_PermissionDenied() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
         config.permissions.flags = config.permissions.flags & ~ARTIST_UPDATE_MODE;
 
         vm.prank(artist, artist);
         extension.initializeTokenData(address(adminControl), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
 
         vm.prank(artist, artist);
-        vm.expectRevert(abi.encodeWithSelector(IWayfinder.ArtistPermissionRevoked.selector));
-        wayfinder.setDisplayMode(address(adminControl), TEST_TOKEN_ID, IWayfinder.DisplayMode.HTML);
+        vm.expectRevert(abi.encodeWithSelector(IMURIProtocol.ArtistPermissionRevoked.selector));
+        muriProtocol.setDisplayMode(address(adminControl), TEST_TOKEN_ID, IMURIProtocol.DisplayMode.HTML);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -1034,11 +1036,11 @@ contract WayfinderTest is Test {
 
         vm.prank(stranger, stranger);
         vm.expectRevert(); // Should revert with Ownable error
-        wayfinder.setDefaultHtmlTemplate(templateParts, false);
+        muriProtocol.setDefaultHtmlTemplate(templateParts, false);
 
         vm.prank(owner, owner);
         vm.recordLogs();
-        wayfinder.setDefaultHtmlTemplate(templateParts, false);
+        muriProtocol.setDefaultHtmlTemplate(templateParts, false);
 
         // Verify event
         Vm.Log[] memory logs = vm.getRecordedLogs();
@@ -1046,7 +1048,7 @@ contract WayfinderTest is Test {
         assertEq(logs[0].topics[0], keccak256("HtmlTemplateUpdated()"));
 
         // Verify template changed
-        string memory template = wayfinder.getDefaultHtmlTemplate();
+        string memory template = muriProtocol.getDefaultHtmlTemplate();
         assertEq(template, "<html>new default template</html>");
     }
 
@@ -1055,18 +1057,18 @@ contract WayfinderTest is Test {
     //////////////////////////////////////////////////////////////*/
 
     function test_renderImage() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
 
         vm.prank(artist, artist);
         extension.initializeTokenData(address(adminControl), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
 
-        string memory result = wayfinder.renderImage(address(adminControl), TEST_TOKEN_ID);
+        string memory result = muriProtocol.renderImage(address(adminControl), TEST_TOKEN_ID);
         assertEq(result, "https://thumb1.com");
     }
 
     function test_renderRawImage() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
-        config.thumbnail.kind = IWayfinder.ThumbnailKind.ON_CHAIN;
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
+        config.thumbnail.kind = IMURIProtocol.ThumbnailKind.ON_CHAIN;
         config.thumbnail.onChain.mimeType = "image/png";
         config.thumbnail.onChain.zipped = false;
 
@@ -1075,53 +1077,53 @@ contract WayfinderTest is Test {
             address(adminControl), TEST_TOKEN_ID, config, _createOnChainThumbnailChunks(), new string[](0)
         );
 
-        bytes memory result = wayfinder.renderRawImage(address(adminControl), TEST_TOKEN_ID);
+        bytes memory result = muriProtocol.renderRawImage(address(adminControl), TEST_TOKEN_ID);
         assertEq(result, "chunk1datachunk2data");
     }
 
     function test_renderHTML() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
 
         vm.prank(artist, artist);
         extension.initializeTokenData(address(adminControl), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
 
-        string memory result = wayfinder.renderHTML(address(adminControl), TEST_TOKEN_ID);
+        string memory result = muriProtocol.renderHTML(address(adminControl), TEST_TOKEN_ID);
         assertTrue(bytes(result).length > 0);
         // Should start with "data:text/html;base64,"
         assertEq(bytes(result)[0], bytes1("d"));
     }
 
     function test_renderRawHTML() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
 
         vm.prank(artist, artist);
         extension.initializeTokenData(address(adminControl), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
 
-        string memory result = wayfinder.renderRawHTML(address(adminControl), TEST_TOKEN_ID);
+        string memory result = muriProtocol.renderRawHTML(address(adminControl), TEST_TOKEN_ID);
         assertEq(result, '<html>"https://artist1.com","https://artist2.com"</html>');
     }
 
     function test_renderMetadata_DirectFileMode() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
-        config.displayMode = IWayfinder.DisplayMode.DIRECT_FILE;
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
+        config.displayMode = IMURIProtocol.DisplayMode.DIRECT_FILE;
 
         vm.prank(artist, artist);
         extension.initializeTokenData(address(adminControl), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
 
-        string memory result = wayfinder.renderMetadata(address(adminControl), TEST_TOKEN_ID);
+        string memory result = muriProtocol.renderMetadata(address(adminControl), TEST_TOKEN_ID);
         assertTrue(bytes(result).length > 0);
         // Should start with "data:application/json;utf8,{"
         assertEq(bytes(result)[0], bytes1("d"));
     }
 
     function test_renderMetadata_HTMLMode() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
-        config.displayMode = IWayfinder.DisplayMode.HTML;
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
+        config.displayMode = IMURIProtocol.DisplayMode.HTML;
 
         vm.prank(artist, artist);
         extension.initializeTokenData(address(adminControl), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
 
-        string memory result = wayfinder.renderMetadata(address(adminControl), TEST_TOKEN_ID);
+        string memory result = muriProtocol.renderMetadata(address(adminControl), TEST_TOKEN_ID);
         assertTrue(bytes(result).length > 0);
         // Should contain both image and animation_url fields
         assertEq(bytes(result)[0], bytes1("d"));
@@ -1132,19 +1134,19 @@ contract WayfinderTest is Test {
     //////////////////////////////////////////////////////////////*/
 
     function test_getArtistArtworkUris() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
 
         vm.prank(artist, artist);
         extension.initializeTokenData(address(adminControl), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
 
-        string[] memory uris = wayfinder.getArtistArtworkUris(address(adminControl), TEST_TOKEN_ID);
+        string[] memory uris = muriProtocol.getArtistArtworkUris(address(adminControl), TEST_TOKEN_ID);
         assertEq(uris.length, 2);
         assertEq(uris[0], "https://artist1.com");
         assertEq(uris[1], "https://artist2.com");
     }
 
     function test_getCollectorArtworkUris() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
 
         vm.prank(artist, artist);
         extension.initializeTokenData(address(mockERC721), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
@@ -1153,43 +1155,43 @@ contract WayfinderTest is Test {
         collectorUris[0] = "https://collector1.com";
 
         vm.prank(collector, collector);
-        wayfinder.addArtworkUris(address(mockERC721), TEST_TOKEN_ID, collectorUris);
+        muriProtocol.addArtworkUris(address(mockERC721), TEST_TOKEN_ID, collectorUris);
 
-        string[] memory uris = wayfinder.getCollectorArtworkUris(address(mockERC721), TEST_TOKEN_ID);
+        string[] memory uris = muriProtocol.getCollectorArtworkUris(address(mockERC721), TEST_TOKEN_ID);
         assertEq(uris.length, 1);
         assertEq(uris[0], "https://collector1.com");
     }
 
     function test_getThumbnailUris() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
 
         vm.prank(artist, artist);
         extension.initializeTokenData(address(adminControl), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
 
-        string[] memory uris = wayfinder.getThumbnailUris(address(adminControl), TEST_TOKEN_ID);
+        string[] memory uris = muriProtocol.getThumbnailUris(address(adminControl), TEST_TOKEN_ID);
         assertEq(uris.length, 2);
         assertEq(uris[0], "https://thumb1.com");
         assertEq(uris[1], "https://thumb2.com");
     }
 
     function test_getPermissions() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
 
         vm.prank(artist, artist);
         extension.initializeTokenData(address(adminControl), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
 
-        IWayfinder.Permissions memory permissions = wayfinder.getPermissions(address(adminControl), TEST_TOKEN_ID);
+        IMURIProtocol.Permissions memory permissions = muriProtocol.getPermissions(address(adminControl), TEST_TOKEN_ID);
         assertTrue(permissions.flags & ARTIST_UPDATE_THUMB != 0);
         assertTrue(permissions.flags & ARTIST_UPDATE_META != 0);
     }
 
     function test_getArtwork() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
 
         vm.prank(artist, artist);
         extension.initializeTokenData(address(adminControl), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
 
-        IWayfinder.Artwork memory artwork = wayfinder.getArtwork(address(adminControl), TEST_TOKEN_ID);
+        IMURIProtocol.Artwork memory artwork = muriProtocol.getArtwork(address(adminControl), TEST_TOKEN_ID);
         assertEq(artwork.artistUris.length, 2);
         assertEq(artwork.mimeType, "image/png");
         assertEq(artwork.fileHash, "0x1234567890abcdef");
@@ -1197,34 +1199,34 @@ contract WayfinderTest is Test {
     }
 
     function test_getThumbnailInfo() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
 
         vm.prank(artist, artist);
         extension.initializeTokenData(address(adminControl), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
 
-        (IWayfinder.ThumbnailKind kind, uint256 selectedIndex) =
-            wayfinder.getThumbnailInfo(address(adminControl), TEST_TOKEN_ID);
-        assertEq(uint8(kind), uint8(IWayfinder.ThumbnailKind.OFF_CHAIN));
+        (IMURIProtocol.ThumbnailKind kind, uint256 selectedIndex) =
+            muriProtocol.getThumbnailInfo(address(adminControl), TEST_TOKEN_ID);
+        assertEq(uint8(kind), uint8(IMURIProtocol.ThumbnailKind.OFF_CHAIN));
         assertEq(selectedIndex, 0);
     }
 
     function test_contractRegistration() public view {
         // Test contract registration functionality
-        assertTrue(wayfinder.isContractOperator(address(adminControl), address(extension)));
-        assertTrue(wayfinder.isContractOperator(address(mockERC721), address(extension)));
+        assertTrue(muriProtocol.isContractOperator(address(adminControl), address(extension)));
+        assertTrue(muriProtocol.isContractOperator(address(mockERC721), address(extension)));
 
         // Test unregistered contract
-        assertFalse(wayfinder.isContractOperator(address(stranger), address(stranger)));
+        assertFalse(muriProtocol.isContractOperator(address(stranger), address(stranger)));
     }
 
     function test_getTokenHtmlTemplate() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
 
         vm.prank(artist, artist);
         extension.initializeTokenData(address(adminControl), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
 
         // Initially should return empty string (using default)
-        string memory template = wayfinder.getTokenHtmlTemplate(address(adminControl), TEST_TOKEN_ID);
+        string memory template = muriProtocol.getTokenHtmlTemplate(address(adminControl), TEST_TOKEN_ID);
         assertEq(template, "");
 
         // Set custom template
@@ -1232,19 +1234,19 @@ contract WayfinderTest is Test {
         templateParts[0] = "<html>custom</html>";
 
         vm.prank(artist, artist);
-        wayfinder.updateHtmlTemplate(address(adminControl), TEST_TOKEN_ID, templateParts, false);
+        muriProtocol.updateHtmlTemplate(address(adminControl), TEST_TOKEN_ID, templateParts, false);
 
-        template = wayfinder.getTokenHtmlTemplate(address(adminControl), TEST_TOKEN_ID);
+        template = muriProtocol.getTokenHtmlTemplate(address(adminControl), TEST_TOKEN_ID);
         assertEq(template, "<html>custom</html>");
     }
 
     function test_getCombinedArtworkUris() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
 
         vm.prank(artist, artist);
         extension.initializeTokenData(address(adminControl), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
 
-        string memory combined = wayfinder.getCombinedArtworkUris(address(adminControl), TEST_TOKEN_ID);
+        string memory combined = muriProtocol.getCombinedArtworkUris(address(adminControl), TEST_TOKEN_ID);
         assertEq(combined, '"https://artist1.com","https://artist2.com"');
     }
 
@@ -1277,62 +1279,62 @@ contract WayfinderTest is Test {
     //////////////////////////////////////////////////////////////*/
 
     function test_InvalidMetadata() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
         config.metadata = "";
 
         vm.prank(artist, artist);
-        vm.expectRevert(abi.encodeWithSelector(IWayfinder.InvalidMetadata.selector));
+        vm.expectRevert(abi.encodeWithSelector(IMURIProtocol.InvalidMetadata.selector));
         extension.initializeTokenData(address(adminControl), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
     }
 
     function test_InvalidArtworkUris() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
         config.artwork.artistUris = new string[](0);
 
         vm.prank(artist, artist);
-        vm.expectRevert(abi.encodeWithSelector(IWayfinder.InvalidArtworkUris.selector));
+        vm.expectRevert(abi.encodeWithSelector(IMURIProtocol.InvalidArtworkUris.selector));
         extension.initializeTokenData(address(adminControl), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
     }
 
     function test_InvalidMimeType() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
         config.artwork.mimeType = "";
 
         vm.prank(artist, artist);
-        vm.expectRevert(abi.encodeWithSelector(IWayfinder.InvalidMimeType.selector));
+        vm.expectRevert(abi.encodeWithSelector(IMURIProtocol.InvalidMimeType.selector));
         extension.initializeTokenData(address(adminControl), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
     }
 
     function test_InvalidFileHash() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
         config.artwork.fileHash = "";
 
         vm.prank(artist, artist);
-        vm.expectRevert(abi.encodeWithSelector(IWayfinder.InvalidFileHash.selector));
+        vm.expectRevert(abi.encodeWithSelector(IMURIProtocol.InvalidFileHash.selector));
         extension.initializeTokenData(address(adminControl), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
     }
 
     function test_OnChainThumbnailEmpty() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
-        config.thumbnail.kind = IWayfinder.ThumbnailKind.ON_CHAIN;
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
+        config.thumbnail.kind = IMURIProtocol.ThumbnailKind.ON_CHAIN;
         config.thumbnail.onChain.mimeType = "image/png";
 
         vm.prank(artist, artist);
-        vm.expectRevert(abi.encodeWithSelector(IWayfinder.OnChainThumbnailEmpty.selector));
+        vm.expectRevert(abi.encodeWithSelector(IMURIProtocol.OnChainThumbnailEmpty.selector));
         extension.initializeTokenData(address(adminControl), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
     }
 
     function test_InvalidSelectedThumbnailUriIndex() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
         config.thumbnail.offChain.selectedUriIndex = 999;
 
         vm.prank(artist, artist);
-        vm.expectRevert(abi.encodeWithSelector(IWayfinder.InvalidSelectedThumbnailUriIndex.selector));
+        vm.expectRevert(abi.encodeWithSelector(IMURIProtocol.InvalidSelectedThumbnailUriIndex.selector));
         extension.initializeTokenData(address(adminControl), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
     }
 
     function test_NotTokenOwnerOrAdmin() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
 
         vm.prank(artist, artist);
         extension.initializeTokenData(address(adminControl), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
@@ -1341,12 +1343,12 @@ contract WayfinderTest is Test {
         uris[0] = "test";
 
         vm.prank(stranger, stranger);
-        vm.expectRevert(abi.encodeWithSelector(IWayfinder.NotTokenOwnerOrAdmin.selector));
-        wayfinder.addArtworkUris(address(adminControl), TEST_TOKEN_ID, uris);
+        vm.expectRevert(abi.encodeWithSelector(IMURIProtocol.NotTokenOwnerOrAdmin.selector));
+        muriProtocol.addArtworkUris(address(adminControl), TEST_TOKEN_ID, uris);
     }
 
     function test_CollectorPermissionDenied() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
         config.permissions.flags = config.permissions.flags & ~COLLECTOR_ADD_REMOVE;
 
         vm.prank(artist, artist);
@@ -1356,8 +1358,8 @@ contract WayfinderTest is Test {
         uris[0] = "test";
 
         vm.prank(collector, collector);
-        vm.expectRevert(abi.encodeWithSelector(IWayfinder.CollectorPermissionDenied.selector));
-        wayfinder.addArtworkUris(address(mockERC721), TEST_TOKEN_ID, uris);
+        vm.expectRevert(abi.encodeWithSelector(IMURIProtocol.CollectorPermissionDenied.selector));
+        muriProtocol.addArtworkUris(address(mockERC721), TEST_TOKEN_ID, uris);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -1365,7 +1367,7 @@ contract WayfinderTest is Test {
     //////////////////////////////////////////////////////////////*/
 
     function test_initializeTokenData_WithHtmlTemplateChunks() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
 
         // Create HTML template chunks
         string[] memory htmlTemplateChunks = new string[](2);
@@ -1376,12 +1378,12 @@ contract WayfinderTest is Test {
         extension.initializeTokenData(address(adminControl), TEST_TOKEN_ID, config, new bytes[](0), htmlTemplateChunks);
 
         // Verify HTML template was stored
-        string memory template = wayfinder.getTokenHtmlTemplate(address(adminControl), TEST_TOKEN_ID);
+        string memory template = muriProtocol.getTokenHtmlTemplate(address(adminControl), TEST_TOKEN_ID);
         assertEq(template, "<html><head><title>Test</title></head><body>{{FILE_URIS}}</body></html>");
     }
 
     function test_initializeTokenData_WithConfigHtmlTemplate() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
 
         // Pre-store HTML template chunks in config (this would be done externally in real usage)
         // For testing purposes, we'll test the case where config.htmlTemplate.chunks is empty
@@ -1394,12 +1396,12 @@ contract WayfinderTest is Test {
         extension.initializeTokenData(address(adminControl), TEST_TOKEN_ID, config, new bytes[](0), htmlTemplateChunks);
 
         // Verify HTML template was stored
-        string memory template = wayfinder.getTokenHtmlTemplate(address(adminControl), TEST_TOKEN_ID);
+        string memory template = muriProtocol.getTokenHtmlTemplate(address(adminControl), TEST_TOKEN_ID);
         assertEq(template, "<html>Config Template {{FILE_URIS}}</html>");
     }
 
     function test_initializeTokenData_EmptyHtmlTemplateChunks() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
 
         // Empty HTML template chunks should result in using default template
         string[] memory emptyHtmlTemplateChunks = new string[](0);
@@ -1410,12 +1412,12 @@ contract WayfinderTest is Test {
         );
 
         // Should return empty string indicating default template is used
-        string memory template = wayfinder.getTokenHtmlTemplate(address(adminControl), TEST_TOKEN_ID);
+        string memory template = muriProtocol.getTokenHtmlTemplate(address(adminControl), TEST_TOKEN_ID);
         assertEq(template, "");
     }
 
     function test_initializeTokenData_HtmlTemplateWithEmptyChunks() public {
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
 
         // HTML template chunks with empty strings should be filtered out
         string[] memory htmlTemplateChunks = new string[](3);
@@ -1427,7 +1429,7 @@ contract WayfinderTest is Test {
         extension.initializeTokenData(address(adminControl), TEST_TOKEN_ID, config, new bytes[](0), htmlTemplateChunks);
 
         // Verify only non-empty chunks were stored
-        string memory template = wayfinder.getTokenHtmlTemplate(address(adminControl), TEST_TOKEN_ID);
+        string memory template = muriProtocol.getTokenHtmlTemplate(address(adminControl), TEST_TOKEN_ID);
         assertEq(template, "<html>{{FILE_URIS}}</html>");
     }
 
@@ -1437,7 +1439,7 @@ contract WayfinderTest is Test {
 
     function test_NotTokenOwner() public {
         // Test that non-token-owners cannot perform token owner operations
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
 
         vm.prank(artist, artist);
         extension.initializeTokenData(address(adminControl), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
@@ -1447,13 +1449,13 @@ contract WayfinderTest is Test {
         newUris[0] = "https://test.com";
 
         vm.prank(stranger, stranger);
-        vm.expectRevert(abi.encodeWithSelector(IWayfinder.NotTokenOwnerOrAdmin.selector));
-        wayfinder.addArtworkUris(address(adminControl), TEST_TOKEN_ID, newUris);
+        vm.expectRevert(abi.encodeWithSelector(IMURIProtocol.NotTokenOwnerOrAdmin.selector));
+        muriProtocol.addArtworkUris(address(adminControl), TEST_TOKEN_ID, newUris);
     }
 
     function test_isTokenOwner_WithERC721Balance() public {
         // Test ERC721 token ownership through balance-based operations
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
 
         vm.prank(artist, artist);
         extension.initializeTokenData(address(mockERC721), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
@@ -1464,17 +1466,17 @@ contract WayfinderTest is Test {
 
         // Collector should be able to add URIs (they own the token)
         vm.prank(collector, collector);
-        wayfinder.addArtworkUris(address(mockERC721), TEST_TOKEN_ID, newUris);
+        muriProtocol.addArtworkUris(address(mockERC721), TEST_TOKEN_ID, newUris);
 
         // Verify the URI was added
-        string[] memory collectorUris = wayfinder.getCollectorArtworkUris(address(mockERC721), TEST_TOKEN_ID);
+        string[] memory collectorUris = muriProtocol.getCollectorArtworkUris(address(mockERC721), TEST_TOKEN_ID);
         assertEq(collectorUris.length, 1);
         assertEq(collectorUris[0], "https://balance-test.com");
     }
 
     function test_setSelectedUri_CollectorNotAffected() public {
         // Test that setSelectedUri only affects artist URIs, not collector URIs
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
 
         vm.prank(artist, artist);
         extension.initializeTokenData(address(mockERC721), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
@@ -1485,24 +1487,24 @@ contract WayfinderTest is Test {
         collectorUris[1] = "https://collector2.com";
 
         vm.prank(collector, collector);
-        wayfinder.addArtworkUris(address(mockERC721), TEST_TOKEN_ID, collectorUris);
+        muriProtocol.addArtworkUris(address(mockERC721), TEST_TOKEN_ID, collectorUris);
 
         // Change selected artist URI
         vm.prank(artist, artist);
-        wayfinder.setSelectedUri(address(mockERC721), TEST_TOKEN_ID, 1);
+        muriProtocol.setSelectedUri(address(mockERC721), TEST_TOKEN_ID, 1);
 
         // Verify only artist URI selection changed
-        IWayfinder.Artwork memory artwork = wayfinder.getArtwork(address(mockERC721), TEST_TOKEN_ID);
+        IMURIProtocol.Artwork memory artwork = muriProtocol.getArtwork(address(mockERC721), TEST_TOKEN_ID);
         assertEq(artwork.selectedArtistUriIndex, 1);
 
         // Collector URIs should be unaffected by setSelectedUri
-        string[] memory storedCollectorUris = wayfinder.getCollectorArtworkUris(address(mockERC721), TEST_TOKEN_ID);
+        string[] memory storedCollectorUris = muriProtocol.getCollectorArtworkUris(address(mockERC721), TEST_TOKEN_ID);
         assertEq(storedCollectorUris.length, 2);
     }
 
     function test_removeArtworkUris_CollectorArray() public {
         // Test removal from collector array specifically
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
 
         vm.prank(artist, artist);
         extension.initializeTokenData(address(mockERC721), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
@@ -1514,55 +1516,56 @@ contract WayfinderTest is Test {
         collectorUris[2] = "https://collector3.com";
 
         vm.prank(collector, collector);
-        wayfinder.addArtworkUris(address(mockERC721), TEST_TOKEN_ID, collectorUris);
+        muriProtocol.addArtworkUris(address(mockERC721), TEST_TOKEN_ID, collectorUris);
 
         // Remove middle collector URI
         uint256[] memory indices = new uint256[](1);
         indices[0] = 1;
 
         vm.prank(collector, collector);
-        wayfinder.removeArtworkUris(address(mockERC721), TEST_TOKEN_ID, indices);
+        muriProtocol.removeArtworkUris(address(mockERC721), TEST_TOKEN_ID, indices);
 
         // Verify removal from collector array only
-        string[] memory remainingCollectorUris = wayfinder.getCollectorArtworkUris(address(mockERC721), TEST_TOKEN_ID);
+        string[] memory remainingCollectorUris =
+            muriProtocol.getCollectorArtworkUris(address(mockERC721), TEST_TOKEN_ID);
         assertEq(remainingCollectorUris.length, 2);
 
         // Artist URIs should be unaffected
-        string[] memory artistUris = wayfinder.getArtistArtworkUris(address(mockERC721), TEST_TOKEN_ID);
+        string[] memory artistUris = muriProtocol.getArtistArtworkUris(address(mockERC721), TEST_TOKEN_ID);
         assertEq(artistUris.length, 2); // Original count
     }
 
     function test_AllPermissionCombinations() public {
         // Test all individual permission revocations
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
 
         vm.prank(artist, artist);
         extension.initializeTokenData(address(adminControl), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
 
         // Test each permission individually
         vm.prank(artist, artist);
-        wayfinder.revokeArtistPermissions(
+        muriProtocol.revokeArtistPermissions(
             address(adminControl), TEST_TOKEN_ID, true, false, false, false, false, false, false
         );
 
-        IWayfinder.Thumbnail memory newThumbnail = config.thumbnail;
+        IMURIProtocol.Thumbnail memory newThumbnail = config.thumbnail;
         vm.prank(artist, artist);
-        vm.expectRevert(abi.encodeWithSelector(IWayfinder.ArtistPermissionRevoked.selector));
-        wayfinder.updateThumbnail(address(adminControl), TEST_TOKEN_ID, newThumbnail, new bytes[](0));
+        vm.expectRevert(abi.encodeWithSelector(IMURIProtocol.ArtistPermissionRevoked.selector));
+        muriProtocol.updateThumbnail(address(adminControl), TEST_TOKEN_ID, newThumbnail, new bytes[](0));
 
         // Test ARTIST_CHOOSE_URIS
         vm.prank(artist, artist);
-        wayfinder.revokeArtistPermissions(
+        muriProtocol.revokeArtistPermissions(
             address(adminControl), TEST_TOKEN_ID, false, false, true, false, false, false, false
         );
 
         vm.prank(artist, artist);
-        vm.expectRevert(abi.encodeWithSelector(IWayfinder.ArtistPermissionRevoked.selector));
-        wayfinder.setSelectedUri(address(adminControl), TEST_TOKEN_ID, 0);
+        vm.expectRevert(abi.encodeWithSelector(IMURIProtocol.ArtistPermissionRevoked.selector));
+        muriProtocol.setSelectedUri(address(adminControl), TEST_TOKEN_ID, 0);
 
         // Test ARTIST_CHOOSE_THUMB
         vm.prank(artist, artist);
-        wayfinder.revokeArtistPermissions(
+        muriProtocol.revokeArtistPermissions(
             address(adminControl), TEST_TOKEN_ID, false, false, false, false, true, false, false
         );
 
@@ -1577,13 +1580,13 @@ contract WayfinderTest is Test {
 
         // Now test that the artist cannot use setSelectedThumbnailUri without permission
         vm.prank(artist, artist);
-        vm.expectRevert(abi.encodeWithSelector(IWayfinder.ArtistPermissionRevoked.selector));
-        wayfinder.setSelectedThumbnailUri(address(mockERC721), 2, 1);
+        vm.expectRevert(abi.encodeWithSelector(IMURIProtocol.ArtistPermissionRevoked.selector));
+        muriProtocol.setSelectedThumbnailUri(address(mockERC721), 2, 1);
     }
 
     function test_CollectorPermissions() public {
         // Test collector-specific permissions
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
 
         // Remove collector choose URIs permission
         config.permissions.flags = config.permissions.flags & ~COLLECTOR_CHOOSE_URIS;
@@ -1592,8 +1595,8 @@ contract WayfinderTest is Test {
         extension.initializeTokenData(address(mockERC721), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
 
         vm.prank(collector, collector);
-        vm.expectRevert(abi.encodeWithSelector(IWayfinder.CollectorPermissionDenied.selector));
-        wayfinder.setSelectedUri(address(mockERC721), TEST_TOKEN_ID, 1);
+        vm.expectRevert(abi.encodeWithSelector(IMURIProtocol.CollectorPermissionDenied.selector));
+        muriProtocol.setSelectedUri(address(mockERC721), TEST_TOKEN_ID, 1);
 
         // Test collector choose thumbnail permission
         config.permissions.flags = config.permissions.flags & ~COLLECTOR_CHOOSE_THUMB;
@@ -1602,8 +1605,8 @@ contract WayfinderTest is Test {
         extension.initializeTokenData(address(mockERC721), 2, config, new bytes[](0), new string[](0));
 
         vm.prank(collector, collector);
-        vm.expectRevert(abi.encodeWithSelector(IWayfinder.CollectorPermissionDenied.selector));
-        wayfinder.setSelectedThumbnailUri(address(mockERC721), 2, 1);
+        vm.expectRevert(abi.encodeWithSelector(IMURIProtocol.CollectorPermissionDenied.selector));
+        muriProtocol.setSelectedThumbnailUri(address(mockERC721), 2, 1);
 
         // Test collector update mode permission
         config.permissions.flags = config.permissions.flags & ~COLLECTOR_UPDATE_MODE;
@@ -1612,13 +1615,13 @@ contract WayfinderTest is Test {
         extension.initializeTokenData(address(mockERC721), 3, config, new bytes[](0), new string[](0));
 
         vm.prank(collector, collector);
-        vm.expectRevert(abi.encodeWithSelector(IWayfinder.CollectorPermissionDenied.selector));
-        wayfinder.setDisplayMode(address(mockERC721), 3, IWayfinder.DisplayMode.HTML);
+        vm.expectRevert(abi.encodeWithSelector(IMURIProtocol.CollectorPermissionDenied.selector));
+        muriProtocol.setDisplayMode(address(mockERC721), 3, IMURIProtocol.DisplayMode.HTML);
     }
 
     function test_AllEvents() public {
         // Comprehensive event testing
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
 
         vm.prank(artist, artist);
         vm.recordLogs();
@@ -1631,7 +1634,7 @@ contract WayfinderTest is Test {
         // Test MetadataUpdated event
         vm.prank(artist, artist);
         vm.recordLogs();
-        wayfinder.updateMetadata(address(adminControl), TEST_TOKEN_ID, "new metadata");
+        muriProtocol.updateMetadata(address(adminControl), TEST_TOKEN_ID, "new metadata");
 
         logs = vm.getRecordedLogs();
         assertEq(logs.length, 1);
@@ -1640,7 +1643,7 @@ contract WayfinderTest is Test {
         // Test SelectedArtworkUriChanged event
         vm.prank(artist, artist);
         vm.recordLogs();
-        wayfinder.setSelectedUri(address(adminControl), TEST_TOKEN_ID, 1);
+        muriProtocol.setSelectedUri(address(adminControl), TEST_TOKEN_ID, 1);
 
         logs = vm.getRecordedLogs();
         assertEq(logs.length, 1);
@@ -1652,7 +1655,7 @@ contract WayfinderTest is Test {
 
         vm.prank(artist, artist);
         vm.recordLogs();
-        wayfinder.addArtworkUris(address(adminControl), TEST_TOKEN_ID, newUris);
+        muriProtocol.addArtworkUris(address(adminControl), TEST_TOKEN_ID, newUris);
 
         logs = vm.getRecordedLogs();
         assertEq(logs.length, 1);
@@ -1661,7 +1664,7 @@ contract WayfinderTest is Test {
         // Test DisplayModeUpdated event
         vm.prank(artist, artist);
         vm.recordLogs();
-        wayfinder.setDisplayMode(address(adminControl), TEST_TOKEN_ID, IWayfinder.DisplayMode.HTML);
+        muriProtocol.setDisplayMode(address(adminControl), TEST_TOKEN_ID, IMURIProtocol.DisplayMode.HTML);
 
         logs = vm.getRecordedLogs();
         assertEq(logs.length, 1);
@@ -1672,19 +1675,19 @@ contract WayfinderTest is Test {
         // Test remaining error cases that might not be covered
 
         // Test InvalidThumbnailKind with renderRawImage
-        IWayfinder.InitConfig memory config = _createValidInitConfig(); // Uses OFF_CHAIN by default
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig(); // Uses OFF_CHAIN by default
 
         vm.prank(artist, artist);
         extension.initializeTokenData(address(adminControl), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
 
-        vm.expectRevert(abi.encodeWithSelector(IWayfinder.InvalidThumbnailKind.selector));
-        wayfinder.renderRawImage(address(adminControl), TEST_TOKEN_ID);
+        vm.expectRevert(abi.encodeWithSelector(IMURIProtocol.InvalidThumbnailKind.selector));
+        muriProtocol.renderRawImage(address(adminControl), TEST_TOKEN_ID);
 
         // Test InvalidIndexRange for off-chain thumbnail URIs
         config.thumbnail.offChain.uris = new string[](0);
 
         vm.prank(artist, artist);
-        vm.expectRevert(abi.encodeWithSelector(IWayfinder.InvalidIndexRange.selector));
+        vm.expectRevert(abi.encodeWithSelector(IMURIProtocol.InvalidIndexRange.selector));
         extension.initializeTokenData(address(adminControl), 999, config, new bytes[](0), new string[](0));
 
         // Test InvalidIndexRange for removeArtworkUris
@@ -1697,43 +1700,43 @@ contract WayfinderTest is Test {
         invalidIndices[0] = 999; // Out of bounds
 
         vm.prank(artist, artist);
-        vm.expectRevert(abi.encodeWithSelector(IWayfinder.InvalidIndexRange.selector));
-        wayfinder.removeArtworkUris(address(adminControl), 998, invalidIndices);
+        vm.expectRevert(abi.encodeWithSelector(IMURIProtocol.InvalidIndexRange.selector));
+        muriProtocol.removeArtworkUris(address(adminControl), 998, invalidIndices);
 
         // Test empty indices array
         uint256[] memory emptyIndices = new uint256[](0);
 
         vm.prank(artist, artist);
-        vm.expectRevert(abi.encodeWithSelector(IWayfinder.InvalidIndexRange.selector));
-        wayfinder.removeArtworkUris(address(adminControl), 998, emptyIndices);
+        vm.expectRevert(abi.encodeWithSelector(IMURIProtocol.InvalidIndexRange.selector));
+        muriProtocol.removeArtworkUris(address(adminControl), 998, emptyIndices);
     }
 
     function test_AdvancedRenderingModes() public {
         // Test rendering with animation URIs
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
         config.artwork.isAnimationUri = true;
-        config.displayMode = IWayfinder.DisplayMode.DIRECT_FILE;
+        config.displayMode = IMURIProtocol.DisplayMode.DIRECT_FILE;
 
         vm.prank(artist, artist);
         extension.initializeTokenData(address(adminControl), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
 
-        string memory metadata = wayfinder.renderMetadata(address(adminControl), TEST_TOKEN_ID);
+        string memory metadata = muriProtocol.renderMetadata(address(adminControl), TEST_TOKEN_ID);
         assertTrue(bytes(metadata).length > 0);
 
         // Test HTML mode rendering
         vm.prank(artist, artist);
-        wayfinder.setDisplayMode(address(adminControl), TEST_TOKEN_ID, IWayfinder.DisplayMode.HTML);
+        muriProtocol.setDisplayMode(address(adminControl), TEST_TOKEN_ID, IMURIProtocol.DisplayMode.HTML);
 
-        metadata = wayfinder.renderMetadata(address(adminControl), TEST_TOKEN_ID);
+        metadata = muriProtocol.renderMetadata(address(adminControl), TEST_TOKEN_ID);
         assertTrue(bytes(metadata).length > 0);
     }
 
     function test_EdgeCasePermutations() public {
         // Test with unregistered contract - should fail
-        IWayfinder.InitConfig memory config = _createValidInitConfig();
+        IMURIProtocol.InitConfig memory config = _createValidInitConfig();
 
         vm.prank(artist, artist);
-        vm.expectRevert(abi.encodeWithSelector(IWayfinder.ContractNotRegistered.selector));
+        vm.expectRevert(abi.encodeWithSelector(IMURIProtocol.ContractNotRegistered.selector));
         extension.initializeTokenData(address(stranger), TEST_TOKEN_ID, config, new bytes[](0), new string[](0));
 
         // Test ownership check with different contract
@@ -1745,7 +1748,7 @@ contract WayfinderTest is Test {
         newUris[0] = "https://test.com";
 
         vm.prank(stranger, stranger);
-        vm.expectRevert(abi.encodeWithSelector(IWayfinder.NotTokenOwnerOrAdmin.selector));
-        wayfinder.addArtworkUris(address(adminControl), TEST_TOKEN_ID, newUris);
+        vm.expectRevert(abi.encodeWithSelector(IMURIProtocol.NotTokenOwnerOrAdmin.selector));
+        muriProtocol.addArtworkUris(address(adminControl), TEST_TOKEN_ID, newUris);
     }
 }

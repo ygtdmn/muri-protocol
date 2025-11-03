@@ -1,4 +1,4 @@
-// Color palette for Wayfinder
+// Color palette for MURI Protocol
 // Based on "Friendly Workshop" design direction
 
 export const colors = {

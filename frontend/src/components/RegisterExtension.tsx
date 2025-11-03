@@ -24,8 +24,8 @@ export default function RegisterExtension({
 }: RegisterExtensionProps) {
 	const { isDarkMode } = useTheme();
 	const baseURI = "";
-	const wayfinderExtensionAddress = import.meta.env
-		.VITE_WAYFINDER_EXTENSION_ADDRESS as Address;
+	const muriExtensionAddress = import.meta.env
+		.VITE_MURI_EXTENSION_ADDRESS as Address;
 
 	const coreAbi =
 		type === "ERC721" ? ierc721CreatorCoreAbi : ierc1155CreatorCoreAbi;
@@ -46,7 +46,7 @@ export default function RegisterExtension({
 
 	const isExtensionRegistered =
 		extensions && Array.isArray(extensions)
-			? extensions.includes(wayfinderExtensionAddress)
+			? extensions.includes(muriExtensionAddress)
 			: false;
 
 	// Simulate the registration to catch errors
@@ -54,7 +54,7 @@ export default function RegisterExtension({
 		abi: coreAbi,
 		address: creator,
 		functionName: "registerExtension",
-		args: [wayfinderExtensionAddress, baseURI],
+		args: [muriExtensionAddress, baseURI],
 		query: { enabled: !!creator && !isExtensionRegistered },
 	});
 
@@ -63,7 +63,7 @@ export default function RegisterExtension({
 			abi: coreAbi,
 			address: creator,
 			functionName: "registerExtension",
-			args: [wayfinderExtensionAddress, baseURI],
+			args: [muriExtensionAddress, baseURI],
 		});
 	};
 
@@ -93,7 +93,7 @@ export default function RegisterExtension({
 						${isDarkMode ? "text-success-dark" : "text-success"}
 					`}
 				>
-					✓ Wayfinder extension registered successfully!
+					✓ MURI extension registered successfully!
 				</p>
 			</div>
 		);
@@ -118,7 +118,7 @@ export default function RegisterExtension({
 						${isDarkMode ? "text-success-dark" : "text-success"}
 					`}
 				>
-					✓ Wayfinder extension is already registered
+					✓ MURI extension is already registered
 				</p>
 			</div>
 		);
@@ -142,7 +142,7 @@ export default function RegisterExtension({
 						${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
 					`}
 				>
-					1. Register Wayfinder Extension
+					1. Register MURI Extension
 				</h4>
 				<p
 					className={`
@@ -150,7 +150,7 @@ export default function RegisterExtension({
 						${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
 					`}
 				>
-					This allows Wayfinder to work with your Manifold collection
+					This allows MURI to work with your Manifold collection
 				</p>
 			</div>
 

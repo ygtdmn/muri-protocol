@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.30 <0.9.0;
 
-import { IWayfinder } from "src/interfaces/IWayfinder.sol";
-import { IWayfinderCreator } from "src/interfaces/IWayfinderCreator.sol";
+import { IMURIProtocol } from "src/interfaces/IMURIProtocol.sol";
+import { IMURIProtocolCreator } from "src/interfaces/IMURIProtocolCreator.sol";
 import { IERC165 } from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
-contract MockWayfinderExtension is IWayfinderCreator {
-    IWayfinder public wayfinder;
+contract MockMURIProtocolExtension is IMURIProtocolCreator {
+    IMURIProtocol public muriProtocol;
     mapping(address => bool) private _admins;
     mapping(address => mapping(address => mapping(uint256 => bool))) private _tokenOwners;
 
-    constructor(address _wayfinder) {
-        wayfinder = IWayfinder(_wayfinder);
+    constructor(address _muriProtocol) {
+        muriProtocol = IMURIProtocol(_muriProtocol);
         _admins[msg.sender] = true;
     }
 
@@ -43,8 +43,9 @@ contract MockWayfinderExtension is IWayfinderCreator {
             return true;
         }
 
-        // Try to call the real contract's isTokenOwner if it implements IWayfinderCreator
-        try IWayfinderCreator(creatorContract).isTokenOwner(creatorContract, account, tokenId) returns (bool result) {
+        // Try to call the real contract's isTokenOwner if it implements IMURIProtocolCreator
+        try IMURIProtocolCreator(creatorContract).isTokenOwner(creatorContract, account, tokenId) returns (bool result)
+        {
             return result;
         } catch {
             return false;
@@ -54,17 +55,17 @@ contract MockWayfinderExtension is IWayfinderCreator {
     function initializeTokenData(
         address contractAddress,
         uint256 tokenId,
-        IWayfinder.InitConfig calldata config,
+        IMURIProtocol.InitConfig calldata config,
         bytes[] calldata thumbnailChunks,
         string[] calldata htmlTemplateChunks
     )
         external
     {
         require(_admins[msg.sender], "Not admin");
-        wayfinder.initializeTokenData(contractAddress, tokenId, config, thumbnailChunks, htmlTemplateChunks);
+        muriProtocol.initializeTokenData(contractAddress, tokenId, config, thumbnailChunks, htmlTemplateChunks);
     }
 
     function supportsInterface(bytes4 interfaceId) external pure override returns (bool) {
-        return interfaceId == type(IWayfinderCreator).interfaceId || interfaceId == type(IERC165).interfaceId;
+        return interfaceId == type(IMURIProtocolCreator).interfaceId || interfaceId == type(IERC165).interfaceId;
     }
 }

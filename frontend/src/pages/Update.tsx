@@ -7,7 +7,7 @@ import {
 } from "wagmi";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import type { Address } from "viem";
-import { wayfinderAbi } from "../abis/wayfinder-abi";
+import { muriAbi } from "../abis/muri-abi";
 import fastlz from "../lib/fastlz";
 import {
 	isThumbnailSupported,
@@ -95,8 +95,8 @@ export default function Update() {
 		isLoading: tokenDataLoading,
 		refetch: refetchTokenData,
 	} = useReadContract({
-		abi: wayfinderAbi,
-		address: import.meta.env.VITE_WAYFINDER_ADDRESS as Address,
+		abi: muriAbi,
+		address: import.meta.env.VITE_MURI_ADDRESS as Address,
 		functionName: "tokenData",
 		args: [creator, BigInt(tokenId || 0)],
 		query: { enabled: !!creator && !!tokenId },
@@ -104,8 +104,8 @@ export default function Update() {
 
 	// Read permissions separately
 	const { data: permissions } = useReadContract({
-		abi: wayfinderAbi,
-		address: import.meta.env.VITE_WAYFINDER_ADDRESS as Address,
+		abi: muriAbi,
+		address: import.meta.env.VITE_MURI_ADDRESS as Address,
 		functionName: "getPermissions",
 		args: [creator, BigInt(tokenId || 0)],
 		query: { enabled: !!creator && !!tokenId },
@@ -113,8 +113,8 @@ export default function Update() {
 
 	// Read artwork data
 	const { data: artwork } = useReadContract({
-		abi: wayfinderAbi,
-		address: import.meta.env.VITE_WAYFINDER_ADDRESS as Address,
+		abi: muriAbi,
+		address: import.meta.env.VITE_MURI_ADDRESS as Address,
 		functionName: "getArtwork",
 		args: [creator, BigInt(tokenId || 0)],
 		query: { enabled: !!creator && !!tokenId },
@@ -122,8 +122,8 @@ export default function Update() {
 
 	// Read thumbnail info
 	const { data: thumbnailInfo } = useReadContract({
-		abi: wayfinderAbi,
-		address: import.meta.env.VITE_WAYFINDER_ADDRESS as Address,
+		abi: muriAbi,
+		address: import.meta.env.VITE_MURI_ADDRESS as Address,
 		functionName: "getThumbnailInfo",
 		args: [creator, BigInt(tokenId || 0)],
 		query: { enabled: !!creator && !!tokenId },
@@ -131,8 +131,8 @@ export default function Update() {
 
 	// Test contract connection with a simple view function
 	const { data: htmlTemplate, error: contractError } = useReadContract({
-		abi: wayfinderAbi,
-		address: import.meta.env.VITE_WAYFINDER_ADDRESS as Address,
+		abi: muriAbi,
+		address: import.meta.env.VITE_MURI_ADDRESS as Address,
 		functionName: "getDefaultHtmlTemplate",
 		args: [],
 		query: { enabled: true },
@@ -142,7 +142,7 @@ export default function Update() {
 	useEffect(() => {
 		console.log(
 			"Debug - Contract Address:",
-			import.meta.env.VITE_WAYFINDER_ADDRESS
+			import.meta.env.VITE_MURI_ADDRESS
 		);
 		console.log("Debug - Creator:", creator);
 		console.log("Debug - Token ID:", tokenId);
@@ -167,8 +167,8 @@ export default function Update() {
 	// Read artist artwork URIs
 	const { data: artistArtworkUris, refetch: refetchArtworkUris } =
 		useReadContract({
-			abi: wayfinderAbi,
-			address: import.meta.env.VITE_WAYFINDER_ADDRESS as Address,
+			abi: muriAbi,
+			address: import.meta.env.VITE_MURI_ADDRESS as Address,
 			functionName: "getArtistArtworkUris",
 			args: [creator, BigInt(tokenId || 0)],
 			query: { enabled: !!creator && !!tokenId },
@@ -177,8 +177,8 @@ export default function Update() {
 	// Read thumbnail URIs (only for off-chain thumbnails)
 	const { data: artistThumbnailUris, refetch: refetchThumbnailUris } =
 		useReadContract({
-			abi: wayfinderAbi,
-			address: import.meta.env.VITE_WAYFINDER_ADDRESS as Address,
+			abi: muriAbi,
+			address: import.meta.env.VITE_MURI_ADDRESS as Address,
 			functionName: "getThumbnailUris",
 			args: [creator, BigInt(tokenId || 0)],
 			query: { enabled: !!creator && !!tokenId && thumbnailInfo?.[0] === 1 },
@@ -319,8 +319,8 @@ export default function Update() {
 
 	// Simulate contract calls for error checking
 	const { error: simulateMetadataError } = useSimulateContract({
-		abi: wayfinderAbi,
-		address: import.meta.env.VITE_WAYFINDER_ADDRESS as Address,
+		abi: muriAbi,
+		address: import.meta.env.VITE_MURI_ADDRESS as Address,
 		functionName: "updateMetadata",
 		args: [creator, BigInt(tokenId || 0), metadataJson],
 		query: {
@@ -333,16 +333,16 @@ export default function Update() {
 	});
 
 	const { error: simulateDisplayError } = useSimulateContract({
-		abi: wayfinderAbi,
-		address: import.meta.env.VITE_WAYFINDER_ADDRESS as Address,
+		abi: muriAbi,
+		address: import.meta.env.VITE_MURI_ADDRESS as Address,
 		functionName: "setDisplayMode",
 		args: [creator, BigInt(tokenId || 0), displayMode],
 		query: { enabled: !!creator && !!tokenId },
 	});
 
 	const { error: simulateHtmlTemplateError } = useSimulateContract({
-		abi: wayfinderAbi,
-		address: import.meta.env.VITE_WAYFINDER_ADDRESS as Address,
+		abi: muriAbi,
+		address: import.meta.env.VITE_MURI_ADDRESS as Address,
 		functionName: "updateHtmlTemplate",
 		args: [creator, BigInt(tokenId || 0), htmlTemplateChunks, false],
 		query: {
@@ -355,8 +355,8 @@ export default function Update() {
 	});
 
 	const { error: simulateThumbnailError } = useSimulateContract({
-		abi: wayfinderAbi,
-		address: import.meta.env.VITE_WAYFINDER_ADDRESS as Address,
+		abi: muriAbi,
+		address: import.meta.env.VITE_MURI_ADDRESS as Address,
 		functionName: "updateThumbnail",
 		args: [
 			creator,
@@ -398,8 +398,8 @@ export default function Update() {
 		revokeUpdateTemplate;
 
 	const { error: simulateRevokePermissionsError } = useSimulateContract({
-		abi: wayfinderAbi,
-		address: import.meta.env.VITE_WAYFINDER_ADDRESS as Address,
+		abi: muriAbi,
+		address: import.meta.env.VITE_MURI_ADDRESS as Address,
 		functionName: "revokeArtistPermissions",
 		args: [
 			creator,
@@ -416,8 +416,8 @@ export default function Update() {
 	});
 
 	const { error: simulateRevokeAllPermissionsError } = useSimulateContract({
-		abi: wayfinderAbi,
-		address: import.meta.env.VITE_WAYFINDER_ADDRESS as Address,
+		abi: muriAbi,
+		address: import.meta.env.VITE_MURI_ADDRESS as Address,
 		functionName: "revokeAllArtistPermissions",
 		args: [creator, BigInt(tokenId || 0)],
 		query: { enabled: !!creator && !!tokenId },
@@ -428,8 +428,8 @@ export default function Update() {
 		if (!metadataJson) return;
 		setCurrentAction("updateMetadata");
 		writeContract({
-			abi: wayfinderAbi,
-			address: import.meta.env.VITE_WAYFINDER_ADDRESS as Address,
+			abi: muriAbi,
+			address: import.meta.env.VITE_MURI_ADDRESS as Address,
 			functionName: "updateMetadata",
 			args: [creator, BigInt(tokenId), metadataJson],
 		});
@@ -451,8 +451,8 @@ export default function Update() {
 			},
 		};
 		writeContract({
-			abi: wayfinderAbi,
-			address: import.meta.env.VITE_WAYFINDER_ADDRESS as Address,
+			abi: muriAbi,
+			address: import.meta.env.VITE_MURI_ADDRESS as Address,
 			functionName: "updateThumbnail",
 			args: [
 				creator,
@@ -467,8 +467,8 @@ export default function Update() {
 		if (!newArtworkUri.trim()) return;
 		setCurrentAction("addArtworkUri");
 		writeContract({
-			abi: wayfinderAbi,
-			address: import.meta.env.VITE_WAYFINDER_ADDRESS as Address,
+			abi: muriAbi,
+			address: import.meta.env.VITE_MURI_ADDRESS as Address,
 			functionName: "addArtworkUris",
 			args: [creator, BigInt(tokenId), [newArtworkUri.trim()]],
 		});
@@ -478,8 +478,8 @@ export default function Update() {
 	const removeArtworkUri = (index: number) => {
 		setCurrentAction("removeArtworkUri");
 		writeContract({
-			abi: wayfinderAbi,
-			address: import.meta.env.VITE_WAYFINDER_ADDRESS as Address,
+			abi: muriAbi,
+			address: import.meta.env.VITE_MURI_ADDRESS as Address,
 			functionName: "removeArtworkUris",
 			args: [creator, BigInt(tokenId), [BigInt(index)]],
 		});
@@ -516,8 +516,8 @@ export default function Update() {
 			},
 		};
 		writeContract({
-			abi: wayfinderAbi,
-			address: import.meta.env.VITE_WAYFINDER_ADDRESS as Address,
+			abi: muriAbi,
+			address: import.meta.env.VITE_MURI_ADDRESS as Address,
 			functionName: "updateThumbnail",
 			args: [creator, BigInt(tokenId), thumbnail, []],
 		});
@@ -526,8 +526,8 @@ export default function Update() {
 	const updateDisplayMode = () => {
 		setCurrentAction("updateDisplayMode");
 		writeContract({
-			abi: wayfinderAbi,
-			address: import.meta.env.VITE_WAYFINDER_ADDRESS as Address,
+			abi: muriAbi,
+			address: import.meta.env.VITE_MURI_ADDRESS as Address,
 			functionName: "setDisplayMode",
 			args: [creator, BigInt(tokenId), displayMode],
 		});
@@ -536,8 +536,8 @@ export default function Update() {
 	const updateArtworkSelection = () => {
 		setCurrentAction("updateArtworkSelection");
 		writeContract({
-			abi: wayfinderAbi,
-			address: import.meta.env.VITE_WAYFINDER_ADDRESS as Address,
+			abi: muriAbi,
+			address: import.meta.env.VITE_MURI_ADDRESS as Address,
 			functionName: "setSelectedUri",
 			args: [creator, BigInt(tokenId), BigInt(selectedArtworkIndex)],
 		});
@@ -549,8 +549,8 @@ export default function Update() {
 		if (!htmlTemplateFile || htmlTemplateChunks.length === 0) return;
 		setCurrentAction("updateHtmlTemplate");
 		writeContract({
-			abi: wayfinderAbi,
-			address: import.meta.env.VITE_WAYFINDER_ADDRESS as Address,
+			abi: muriAbi,
+			address: import.meta.env.VITE_MURI_ADDRESS as Address,
 			functionName: "updateHtmlTemplate",
 			args: [creator, BigInt(tokenId), htmlTemplateChunks, false], // false = not zipped for HTML
 		});
@@ -560,8 +560,8 @@ export default function Update() {
 		if (!hasPermissionsToRevoke) return;
 		setCurrentAction("revokeSelectedPermissions");
 		writeContract({
-			abi: wayfinderAbi,
-			address: import.meta.env.VITE_WAYFINDER_ADDRESS as Address,
+			abi: muriAbi,
+			address: import.meta.env.VITE_MURI_ADDRESS as Address,
 			functionName: "revokeArtistPermissions",
 			args: [
 				creator,
@@ -580,8 +580,8 @@ export default function Update() {
 	const revokeAllPermissions = () => {
 		setCurrentAction("revokeAllPermissions");
 		writeContract({
-			abi: wayfinderAbi,
-			address: import.meta.env.VITE_WAYFINDER_ADDRESS as Address,
+			abi: muriAbi,
+			address: import.meta.env.VITE_MURI_ADDRESS as Address,
 			functionName: "revokeAllArtistPermissions",
 			args: [creator, BigInt(tokenId)],
 		});

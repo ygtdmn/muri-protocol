@@ -6,50 +6,53 @@ import {
 	useSimulateContract,
 } from "wagmi";
 import type { Address } from "viem";
-import { wayfinderAbi } from "../abis/wayfinder-abi";
+import { muriAbi } from "../abis/muri-abi";
 import { useTheme } from "../hooks/useTheme";
 import { RefreshCw } from "lucide-react";
 
-interface RegisterWayfinderProps {
+interface RegisterMURIProps {
 	creator: Address;
 	onSuccess?: () => void;
 }
 
-export default function RegisterWayfinder({ creator, onSuccess }: RegisterWayfinderProps) {
+export default function RegisterMURI({
+	creator,
+	onSuccess,
+}: RegisterMURIProps) {
 	const { isDarkMode } = useTheme();
-	const wayfinderAddress = import.meta.env.VITE_WAYFINDER_ADDRESS as Address;
-	const wayfinderExtensionAddress = import.meta.env
-		.VITE_WAYFINDER_EXTENSION_ADDRESS as Address;
+	const muriAddress = import.meta.env.VITE_MURI_ADDRESS as Address;
+	const muriExtensionAddress = import.meta.env
+		.VITE_MURI_EXTENSION_ADDRESS as Address;
 
 	const { data: hash, isPending, writeContract } = useWriteContract();
 	const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
 		hash,
 	});
 
-	// Check if contract is already registered with Wayfinder
+	// Check if contract is already registered with MURI Protocol
 	const { data: isRegistered } = useReadContract({
-		abi: wayfinderAbi,
-		address: wayfinderAddress,
+		abi: muriAbi,
+		address: muriAddress,
 		functionName: "isContractOperator",
-		args: [creator, wayfinderExtensionAddress],
+		args: [creator, muriExtensionAddress],
 		query: { enabled: !!creator },
 	});
 
 	// Simulate the registration to catch errors
 	const { error: simulateError } = useSimulateContract({
-		abi: wayfinderAbi,
-		address: wayfinderAddress,
+		abi: muriAbi,
+		address: muriAddress,
 		functionName: "registerContract",
-		args: [creator, wayfinderExtensionAddress],
+		args: [creator, muriExtensionAddress],
 		query: { enabled: !!creator && !isRegistered },
 	});
 
 	const handleRegister = () => {
 		writeContract({
-			abi: wayfinderAbi,
-			address: wayfinderAddress,
+			abi: muriAbi,
+			address: muriAddress,
 			functionName: "registerContract",
-			args: [creator, wayfinderExtensionAddress],
+			args: [creator, muriExtensionAddress],
 		});
 	};
 
@@ -79,7 +82,7 @@ export default function RegisterWayfinder({ creator, onSuccess }: RegisterWayfin
 						${isDarkMode ? "text-success-dark" : "text-success"}
 					`}
 				>
-					✓ Contract registered with Wayfinder successfully!
+					✓ Contract registered with MURI Protocol successfully!
 				</p>
 			</div>
 		);
@@ -104,7 +107,7 @@ export default function RegisterWayfinder({ creator, onSuccess }: RegisterWayfin
 						${isDarkMode ? "text-success-dark" : "text-success"}
 					`}
 				>
-					✓ Contract is already registered with Wayfinder
+					✓ Contract is already registered with MURI Protocol
 				</p>
 			</div>
 		);
@@ -128,7 +131,7 @@ export default function RegisterWayfinder({ creator, onSuccess }: RegisterWayfin
 						${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
 					`}
 				>
-					2. Register with Wayfinder
+					2. Register with MURI Protocol
 				</h4>
 				<p
 					className={`
@@ -146,7 +149,11 @@ export default function RegisterWayfinder({ creator, onSuccess }: RegisterWayfin
 					w-full px-6 py-3 rounded-lg font-semibold
 					transition-all duration-200
 					${
-						isPending || isConfirming || !creator || isRegistered || !!simulateError
+						isPending ||
+						isConfirming ||
+						!creator ||
+						isRegistered ||
+						!!simulateError
 							? "opacity-50 cursor-not-allowed bg-surface-hover-light dark:bg-surface-hover-dark text-text-tertiary-light dark:text-text-tertiary-dark"
 							: "bg-primary hover:bg-primary-hover dark:bg-primary-dark dark:hover:bg-primary-dark-hover text-white shadow-soft hover:shadow-medium"
 					}

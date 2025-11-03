@@ -6,9 +6,9 @@ import type { Address } from "viem";
 import { wagmiConfig } from "../lib/wagmi";
 import { ierc721CreatorCoreAbi } from "../abis/IERC721CreatorCore-abi";
 import { ierc1155CreatorCoreAbi } from "../abis/IERC1155CreatorCore-abi";
-import { wayfinderAbi } from "../abis/wayfinder-abi";
+import { muriAbi } from "../abis/muri-abi";
 import RegisterExtension from "../components/RegisterExtension";
-import RegisterWayfinder from "../components/RegisterWayfinder";
+import RegisterMURI from "../components/RegisterMURI";
 import { useManifoldAuth } from "../hooks/useManifoldAuth";
 import { useReadContract } from "wagmi";
 import { Palette, Heart, RefreshCw, ArrowLeft, Search } from "lucide-react";
@@ -58,22 +58,22 @@ export default function Collections() {
 		query: { enabled: !!resolved?.address && resolved?.type !== "Unknown" },
 	});
 
-	const wayfinderExtensionAddress = import.meta.env
-		.VITE_WAYFINDER_EXTENSION_ADDRESS as Address;
+	const muriExtensionAddress = import.meta.env
+		.VITE_MURI_EXTENSION_ADDRESS as Address;
 	const isExtensionRegistered =
 		extensions && Array.isArray(extensions)
-			? extensions.includes(wayfinderExtensionAddress)
+			? extensions.includes(muriExtensionAddress)
 			: false;
 
-	// Check if contract is registered with Wayfinder
+	// Check if contract is registered with MURI Protocol
 	const { data: isContractRegistered, refetch: refetchContractRegistration } = useReadContract({
-		abi: wayfinderAbi,
-		address: import.meta.env.VITE_WAYFINDER_ADDRESS as Address,
+		abi: muriAbi,
+		address: import.meta.env.VITE_MURI_ADDRESS as Address,
 		functionName: "isContractOperator",
 		args: [
 			resolved?.address ||
 				("0x0000000000000000000000000000000000000000" as Address),
-			wayfinderExtensionAddress,
+			muriExtensionAddress,
 		],
 		query: { enabled: !!resolved?.address },
 	});
@@ -291,7 +291,7 @@ export default function Collections() {
 							>
 								Welcome to{" "}
 								<span className={isDarkMode ? "text-primary-dark" : "text-primary"}>
-									Wayfinder
+									MURI Protocol
 								</span>
 							</h1>
 								<p
@@ -701,7 +701,7 @@ export default function Collections() {
 														}
 													`}
 												>
-													{isContractRegistered ? "✓ Wayfinder" : "Wayfinder"}
+													{isContractRegistered ? "✓ MURI Protocol" : "MURI Protocol"}
 												</span>
 											</div>
 										</div>
@@ -713,7 +713,7 @@ export default function Collections() {
 													type={resolved.type}
 													onSuccess={refetchExtensions}
 												/>
-												<RegisterWayfinder 
+												<RegisterMURI 
 													creator={resolved.address}
 													onSuccess={refetchContractRegistration}
 												/>

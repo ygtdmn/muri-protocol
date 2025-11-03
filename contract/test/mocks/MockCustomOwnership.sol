@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.30 <0.9.0;
 
-import { IWayfinderCreator } from "src/interfaces/IWayfinderCreator.sol";
+import { IMURIProtocolCreator } from "src/interfaces/IMURIProtocolCreator.sol";
 import { IERC165 } from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
 /**
  * @title MockCustomOwnership
- * @dev Mock contract for testing custom ownership styles in Wayfinder
+ * @dev Mock contract for testing custom ownership styles in MURI Protocol
  */
-contract MockCustomOwnership is IWayfinderCreator {
+contract MockCustomOwnership is IMURIProtocolCreator {
     address private _tokenOwner;
     mapping(address => bool) private _admins;
     address private _contractOwner;
@@ -57,6 +57,6 @@ contract MockCustomOwnership is IWayfinderCreator {
     }
 
     function supportsInterface(bytes4 interfaceId) external pure override returns (bool) {
-        return interfaceId == type(IWayfinderCreator).interfaceId || interfaceId == type(IERC165).interfaceId;
+        return interfaceId == type(IMURIProtocolCreator).interfaceId || interfaceId == type(IERC165).interfaceId;
     }
 }
