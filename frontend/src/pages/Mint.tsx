@@ -14,7 +14,8 @@ import {
 	getFileInfo,
 	isThumbnailSupported,
 	getThumbnailAcceptAttribute,
-	getUnsupportedThumbnailMessage
+	getUnsupportedThumbnailMessage,
+	resolveMimeType
 } from "../utils/fileValidation";
 import { pinToIPFSWithX402, getIPFSUrl, estimatePinningCost } from "../utils/pinatax402";
 import FilePreview from "../components/FilePreview";
@@ -128,7 +129,8 @@ export default function Mint() {
 
 	const handleArtworkFile = useCallback(async (file: File) => {
 		setArtworkFile(file);
-		setImageMimeType(file.type);
+		const mimeType = resolveMimeType(file);
+		setImageMimeType(mimeType);
 		const reader = new FileReader();
 		reader.onload = (e) => setArtworkPreview(e.target?.result as string);
 		reader.readAsDataURL(file);
@@ -136,7 +138,7 @@ export default function Mint() {
 		const hash = sha256.hex(new Uint8Array(buffer));
 		setImageHash(`0x${hash}`);
 		const fileInfo = getFileInfo(file);
-		const isStaticImage = fileInfo.category === "image" && !file.type.includes("gif");
+		const isStaticImage = fileInfo.category === "image" && !mimeType.includes("gif");
 		setIsAnimationUri(!isStaticImage);
 	}, []);
 
@@ -152,7 +154,7 @@ export default function Mint() {
 		}
 
 		setThumbnailFile(file);
-		setThumbMime(file.type);
+		setThumbMime(resolveMimeType(file));
 
 		// Create preview
 		const reader = new FileReader();

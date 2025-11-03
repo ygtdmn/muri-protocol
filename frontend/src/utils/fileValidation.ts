@@ -312,3 +312,88 @@ export function getUnsupportedThumbnailMessage(file: File): string {
 	const { extension } = getFileInfo(file);
 	return `File type "${extension}" is not supported for thumbnails. Please use image files (PNG, JPG, GIF, SVG, WebP, etc.).`;
 }
+
+/**
+ * Resolve the correct MIME type for a file
+ * Uses file.type if available and valid, otherwise determines from extension
+ */
+export function resolveMimeType(file: File): string {
+	// If browser provides a valid MIME type (not empty and not generic), use it
+	if (file.type && file.type !== "application/octet-stream") {
+		// Verify it's in our supported list or is a valid MIME type format
+		const categoryFromMime = getFileCategoryFromMime(file.type);
+		if (categoryFromMime) {
+			return file.type;
+		}
+	}
+
+	// Fallback: determine MIME type from extension
+	const extension = "." + file.name.split(".").pop()?.toLowerCase();
+	
+	// Extension-to-MIME mappings for common file types
+	const extensionMimeMap: Record<string, string> = {
+		// 3D Models
+		".glb": "model/gltf-binary",
+		".gltf": "model/gltf+json",
+		".vox": "application/octet-stream",
+		".obj": "model/obj",
+		".fbx": "model/fbx",
+		".dae": "model/x3d+xml",
+		".3ds": "application/octet-stream",
+		".blend": "application/octet-stream",
+		
+		// Images
+		".png": "image/png",
+		".jpg": "image/jpeg",
+		".jpeg": "image/jpeg",
+		".gif": "image/gif",
+		".webp": "image/webp",
+		".svg": "image/svg+xml",
+		".svgz": "image/svg+xml",
+		".heic": "image/heic",
+		".heif": "image/heif",
+		".tiff": "image/tiff",
+		".tif": "image/tiff",
+		".raw": "image/raw",
+		
+		// Video
+		".mp4": "video/mp4",
+		".webm": "video/webm",
+		".mov": "video/quicktime",
+		".avi": "video/x-msvideo",
+		".wmv": "video/x-ms-wmv",
+		".flv": "video/x-flv",
+		".mpg": "video/mpeg",
+		".mpeg": "video/mpeg",
+		
+		// Audio
+		".mp3": "audio/mpeg",
+		".wav": "audio/wav",
+		".ogg": "audio/ogg",
+		".m4a": "audio/m4a",
+		".aac": "audio/aac",
+		".opus": "audio/opus",
+		".aiff": "audio/aiff",
+		".aif": "audio/aiff",
+		".wma": "audio/x-ms-wma",
+		
+		// HTML & Documents
+		".html": "text/html",
+		".htm": "text/html",
+		".pdf": "application/pdf",
+		
+		// JSON
+		".json": "application/json",
+		".jsonl": "application/json",
+		
+		// Text
+		".txt": "text/plain",
+		".md": "text/markdown",
+		".xml": "application/xml",
+		".csv": "text/csv",
+		".rtf": "application/rtf",
+	};
+
+	// Return mapped MIME type or fallback to file.type or generic
+	return extensionMimeMap[extension] || file.type || "application/octet-stream";
+}

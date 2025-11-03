@@ -16,8 +16,9 @@ function minifyHTML(html) {
   // Remove HTML comments
   minified = minified.replace(/<!--[\s\S]*?-->/g, "");
 
-  // Remove JavaScript comments (single line)
-  minified = minified.replace(/\/\/.*$/gm, "");
+  // Remove JavaScript comments (single line) - BUT preserve URLs
+  // Don't remove // if it's preceded by : or " (likely a URL)
+  minified = minified.replace(/(?<!:)(?<!")\/\/(?!\/)[^\n]*/gm, "");
 
   // Remove JavaScript comments (multi-line) - be careful with regex literals
   minified = minified.replace(/\/\*[\s\S]*?\*\//g, "");
@@ -61,24 +62,6 @@ function minifyHTML(html) {
   return minified;
 }
 
-function escapeForSolidity(str) {
-  // Escape backslashes first
-  str = str.replace(/\\/g, "\\\\");
-
-  // Escape double quotes
-  str = str.replace(/"/g, '\\"');
-
-  // Escape newlines (though we shouldn't have any after minification)
-  str = str.replace(/\n/g, "\\n");
-
-  // Escape carriage returns
-  str = str.replace(/\r/g, "\\r");
-
-  // Escape tabs
-  str = str.replace(/\t/g, "\\t");
-
-  return str;
-}
 
 function generateStats(original, minified) {
   const originalSize = original.length;
@@ -114,7 +97,7 @@ Options:
   --help, -h      Show this help message
 
 Output:
-  html-template/minified.html - Escaped, single-line minified HTML
+  html-template/minified.html - Single-line minified HTML
 
 Template Variables (for Solidity):
   {{FILE_URIS}}     - Comma-separated quoted URIs
@@ -145,16 +128,12 @@ Examples:
     console.log(`   Minified size: ${stats.minifiedSize.toLocaleString()} characters`);
     console.log(`   Space saved: ${stats.savings.toLocaleString()} characters (${stats.percentage}%)`);
 
-    // Escape for Solidity
-    const escapedHTML = escapeForSolidity(minifiedHTML);
-
-    // Save minified and escaped HTML as one-liner
+    // Save minified HTML as one-liner
     const outputFile = "minified.html";
     const outputPath = path.join(__dirname, outputFile);
-    fs.writeFileSync(outputPath, escapedHTML, "utf8");
-    console.log(`💾 Minified and escaped HTML saved to: html-template/${outputFile}`);
-    console.log(`📏 Original length: ${minifiedHTML.length.toLocaleString()} characters`);
-    console.log(`📏 Escaped length: ${escapedHTML.length.toLocaleString()} characters`);
+    fs.writeFileSync(outputPath, minifiedHTML, "utf8");
+    console.log(`💾 Minified HTML saved to: html-template/${outputFile}`);
+    console.log(`📏 Length: ${minifiedHTML.length.toLocaleString()} characters`);
 
     if (args.includes("--stats")) {
       console.log(`\n📈 Detailed Statistics:`);
@@ -171,18 +150,18 @@ Examples:
 
       // Show how to use in Solidity
       console.log(`\n💡 Usage in Solidity:`);
-      console.log(`   1. Copy the contents of html-template/minified.html`);
-      console.log(`   2. Paste into your Solidity contract as a string constant`);
-      console.log(`   3. Use string replacement for template variables:`);
+      console.log(`   Use vm.readFile to read the template in your deployment scripts:`);
+      console.log(`   string memory htmlTemplate = vm.readFile("html-template/minified.html");`);
+      console.log(`   `);
+      console.log(`   Template variables to replace:`);
       console.log(`      - {{FILE_URIS}}`);
       console.log(`      - {{FILE_HASH}}`);
     }
 
     console.log("✅ Minification complete!");
     console.log(`\n📝 Next steps:`);
-    console.log(`   1. Open html-template/minified.html`);
-    console.log(`   2. Copy the entire content (it's a single line)`);
-    console.log(`   3. Use it in your Solidity contract`);
+    console.log(`   1. Use vm.readFile("html-template/minified.html") in your deployment script`);
+    console.log(`   2. Deploy with: forge script script/Deploy.s.sol --broadcast`);
   } catch (error) {
     console.error("❌ Error:", error.message);
     process.exit(1);
