@@ -319,8 +319,10 @@ export default function Collections() {
 									`}
 								>
 									<div className="text-center space-y-6">
-										<div className={`w-20 h-20 rounded-2xl flex items-center justify-center mx-auto transition-all duration-200 ${
-											isDarkMode ? "bg-primary-dark-subtle" : "bg-primary-subtle"
+										<div className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto transition-all duration-200 shadow-lg ${
+											isDarkMode 
+												? "bg-gradient-to-br from-primary-dark/40 via-primary-dark/20 to-transparent border border-primary-dark/40" 
+												: "bg-gradient-to-br from-primary/30 via-primary/15 to-transparent border border-primary/40"
 										}`}>
 											<Palette className={`w-10 h-10 ${isDarkMode ? "text-primary-dark" : "text-primary"}`} />
 										</div>
@@ -350,8 +352,10 @@ export default function Collections() {
 									`}
 								>
 									<div className="text-center space-y-6">
-										<div className={`w-20 h-20 rounded-2xl flex items-center justify-center mx-auto transition-all duration-200 ${
-											isDarkMode ? "bg-secondary-dark-subtle" : "bg-secondary-subtle"
+										<div className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto transition-all duration-200 shadow-lg ${
+											isDarkMode 
+												? "bg-gradient-to-br from-secondary-dark/40 via-secondary-dark/20 to-transparent border border-secondary-dark/40" 
+												: "bg-gradient-to-br from-secondary/30 via-secondary/15 to-transparent border border-secondary/40"
 										}`}>
 											<Heart className={`w-10 h-10 ${isDarkMode ? "text-secondary-dark" : "text-secondary"}`} />
 										</div>
