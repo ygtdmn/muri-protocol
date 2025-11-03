@@ -1,8 +1,8 @@
 // File validation utility for comprehensive media type support
-// Supports: Images, Video, Audio, 3D Models, and HTML files
+// Supports: Images, Video, Audio, 3D Models, HTML, and Text files
 
 export interface FileTypeInfo {
-	category: "image" | "video" | "audio" | "3d" | "html" | "document";
+	category: "image" | "video" | "audio" | "3d" | "html" | "document" | "text";
 	mimeTypes: string[];
 	extensions: string[];
 }
@@ -166,6 +166,34 @@ export const SUPPORTED_FILE_TYPES: Record<string, FileTypeInfo> = {
 		],
 		extensions: [".json", ".jsonl", ".ndjson"],
 	},
+
+	// Text and document formats
+	text: {
+		category: "text",
+		mimeTypes: [
+			"text/plain",
+			"text/markdown",
+			"text/x-markdown",
+			"text/csv",
+			"text/tab-separated-values",
+			"text/xml",
+			"application/xml",
+			"text/rtf",
+			"application/rtf",
+			"text/x-log",
+		],
+		extensions: [
+			".txt",
+			".md",
+			".markdown",
+			".csv",
+			".tsv",
+			".xml",
+			".rtf",
+			".log",
+			".text",
+		],
+	},
 };
 
 // Comprehensive list of all supported extensions
@@ -274,7 +302,7 @@ export function isThumbnailSupported(file: File): boolean {
  */
 export function getUnsupportedFileMessage(file: File): string {
 	const { extension } = getFileInfo(file);
-	return `File type "${extension}" is not supported. Please use: Image, video, audio, 3D model, or HTML files.`;
+	return `File type "${extension}" is not supported. Please use: Image, video, audio, 3D model, HTML, or text files.`;
 }
 
 /**
