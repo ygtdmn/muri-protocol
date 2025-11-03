@@ -22,8 +22,8 @@ Store multiple URIs per token. Manage them with granular permissions. Keep thing
 
 | Contract | Address |
 |----------|---------|
-| MURIProtocol (Sepolia) | `0x16717a3A721E30a139cB99D78eEE57b266114ACA` |
-| MURIManifoldExtension (Sepolia) | `0x41f961a72E1E5F03D4176f428664A1236531B4Ed` |
+| MURIProtocol (Sepolia) | `0x42d7C2B7dF3EFfb6B2c9a22F9791b09F72C66d45` |
+| MURIManifoldExtension (Sepolia) | `0x204D622BF64d36ED637e3491c2BeAD2Be08C040b` |
 
 ### Core Components
 
