@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { Info, AlertCircle, CheckCircle, AlertTriangle, X } from 'lucide-react';
 
 export type AlertVariant = 'info' | 'success' | 'warning' | 'danger';

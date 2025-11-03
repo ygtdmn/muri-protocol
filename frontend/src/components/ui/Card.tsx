@@ -1,4 +1,4 @@
-import { ReactNode, HTMLAttributes } from 'react';
+import type { ReactNode, HTMLAttributes } from 'react';
 
 export type CardVariant = 'default' | 'hover' | 'bordered' | 'subtle';
 export type CardPadding = 'none' | 'sm' | 'md' | 'lg';
