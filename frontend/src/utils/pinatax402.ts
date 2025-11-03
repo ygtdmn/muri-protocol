@@ -47,12 +47,12 @@ export async function pinToIPFSWithX402(options: PinToIPFSOptions): Promise<Pina
 	const { file, name, walletClient } = options;
 
 	// Wrap fetch with payment handling
-	// Max value set to 1 USDC (1000000 base units for USDC which has 6 decimals)
+	// Max value set to 10 USDC (1000000 base units for USDC which has 6 decimals)
 	// WalletClient from viem is compatible with the Signer interface
 	const fetchWithPayment = wrapFetchWithPayment(
 		fetch,
 		walletClient as unknown as Signer,
-		BigInt(1000000), // 1 USDC max
+		BigInt(10000000), // 10 USDC max
 	);
 
 	try {
