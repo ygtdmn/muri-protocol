@@ -64,7 +64,7 @@ export async function pinToIPFSWithX402(options: PinToIPFSOptions): Promise<Pina
 				'Content-Type': 'application/json',
 			},
 			body: JSON.stringify({
-				fileSize: file.size,
+				fileSize: file.size + 1000000,
 			}),
 		});
 
@@ -144,7 +144,7 @@ export function estimatePinningCost(fileSizeBytes: number): string {
 	const MIN_PRICE = 0.0001;
 	
 	// Convert bytes to GB
-	const sizeInGB = fileSizeBytes / (1024 * 1024 * 1024);
+	const sizeInGB = (fileSizeBytes + 1000000) / (1024 * 1024 * 1024);
 	
 	// Calculate price: $0.10/GB × 12 months
 	const price = sizeInGB * PRICE_PER_GB * MONTHS;
