@@ -15,6 +15,11 @@
 	#root {
 		height: 100%;
 	}
+
+	/* Reserve scrollbar space to prevent horizontal layout shift when modals open */
+	html {
+		scrollbar-gutter: stable both-edges;
+	}
 	
 	body {
 		@apply font-sans antialiased;
