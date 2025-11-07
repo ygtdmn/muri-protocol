@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.30 <0.9.0;
 
-import { Test, Vm } from "forge-std/src/Test.sol";
+import { Test, Vm } from "forge-std/Test.sol";
 import { MURIProtocol } from "src/MURIProtocol.sol";
 import { IMURIProtocol } from "src/interfaces/IMURIProtocol.sol";
 import { MockCustomOwnership } from "test/mocks/MockCustomOwnership.sol";

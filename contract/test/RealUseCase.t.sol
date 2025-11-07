@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.30 <0.9.0;
 
-import { Test } from "forge-std/src/Test.sol";
+import { Test } from "forge-std/Test.sol";
 import { IERC1155CreatorCore } from "@manifoldxyz/creator-core-solidity/contracts/core/IERC1155CreatorCore.sol";
-import { console2 } from "forge-std/src/console2.sol";
+import { console2 } from "forge-std/console2.sol";
 import { MURIProtocolManifoldExtension } from "src/MURIProtocolManifoldExtension.sol";
 import { MURIProtocol } from "src/MURIProtocol.sol";
 import { IMURIProtocol } from "src/interfaces/IMURIProtocol.sol";

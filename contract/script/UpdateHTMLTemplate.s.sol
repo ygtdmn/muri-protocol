@@ -3,7 +3,6 @@ pragma solidity >=0.8.27 <0.9.0;
 
 import { BaseScript } from "./Base.s.sol";
 import { MURIProtocol } from "../src/MURIProtocol.sol";
-import { MURIProtocolManifoldExtension } from "../src/MURIProtocolManifoldExtension.sol";
 
 contract UpdateHTMLTemplate is BaseScript {
     function run() public broadcast {
