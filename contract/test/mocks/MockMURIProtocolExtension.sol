@@ -10,9 +10,9 @@ contract MockMURIProtocolExtension is IMURIProtocolCreator {
     mapping(address => bool) private _admins;
     mapping(address => mapping(address => mapping(uint256 => bool))) private _tokenOwners;
 
-    constructor(address _muriProtocol) {
+    constructor(address _muriProtocol, address _owner) {
         muriProtocol = IMURIProtocol(_muriProtocol);
-        _admins[msg.sender] = true;
+        _admins[_owner] = true;
     }
 
     function setAdmin(address account, bool adminStatus) external {
@@ -44,8 +44,9 @@ contract MockMURIProtocolExtension is IMURIProtocolCreator {
         }
 
         // Try to call the real contract's isTokenOwner if it implements IMURIProtocolCreator
-        try IMURIProtocolCreator(creatorContract).isTokenOwner(creatorContract, account, tokenId) returns (bool result)
-        {
+        try IMURIProtocolCreator(creatorContract).isTokenOwner(creatorContract, account, tokenId) returns (
+            bool result
+        ) {
             return result;
         } catch {
             return false;

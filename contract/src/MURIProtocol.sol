@@ -56,10 +56,11 @@ contract MURIProtocol is IMURIProtocol, Ownable, Lifebuoy {
     /// @notice Initialize the contract with an HTML template
     /// @param _htmlTemplate Initial HTML template with placeholders
     /// @param _zipped True if the template is compressed with FastLZ
-    constructor(string memory _htmlTemplate, bool _zipped) {
+    /// @param _owner The initial owner of the contract
+    constructor(string memory _htmlTemplate, bool _zipped, address _owner) {
         _defaultHtmlTemplate.chunks.push(SSTORE2.write(bytes(_htmlTemplate)));
         _defaultHtmlTemplate.zipped = _zipped;
-        _initializeOwner(msg.sender);
+        _initializeOwner(_owner);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -773,8 +774,9 @@ contract MURIProtocol is IMURIProtocol, Ownable, Lifebuoy {
                 }
 
                 if (bytes(artworkUri).length > 0) {
-                    json =
-                        _appendJsonField(json, LibString.concat(LibString.concat('"animation_url":"', artworkUri), '"'));
+                    json = _appendJsonField(
+                        json, LibString.concat(LibString.concat('"animation_url":"', artworkUri), '"')
+                    );
                 }
             }
         }
@@ -886,14 +888,7 @@ contract MURIProtocol is IMURIProtocol, Ownable, Lifebuoy {
     /// @param contractAddress The creator contract address
     /// @param tokenId The token ID
     /// @return Array of collector artwork URIs
-    function getCollectorArtworkUris(
-        address contractAddress,
-        uint256 tokenId
-    )
-        external
-        view
-        returns (string[] memory)
-    {
+    function getCollectorArtworkUris(address contractAddress, uint256 tokenId) external view returns (string[] memory) {
         return tokenData[contractAddress][tokenId].artwork.collectorUris;
     }
 

@@ -7,8 +7,9 @@ import { IMURIProtocolCreator } from "./interfaces/IMURIProtocolCreator.sol";
 import { Lifebuoy } from "solady/utils/Lifebuoy.sol";
 import { IERC721CreatorCore } from "@manifoldxyz/creator-core-solidity/contracts/core/IERC721CreatorCore.sol";
 import { IERC1155CreatorCore } from "@manifoldxyz/creator-core-solidity/contracts/core/IERC1155CreatorCore.sol";
-import { ICreatorExtensionTokenURI } from
-    "@manifoldxyz/creator-core-solidity/contracts/extensions/ICreatorExtensionTokenURI.sol";
+import {
+    ICreatorExtensionTokenURI
+} from "@manifoldxyz/creator-core-solidity/contracts/extensions/ICreatorExtensionTokenURI.sol";
 import { IERC165 } from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import { IERC1155 } from "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
@@ -47,8 +48,10 @@ contract MURIProtocolManifoldExtension is AdminControl, ICreatorExtensionTokenUR
 
     /// @notice Initialize the contract with a MURI Protocol instance
     /// @param _muriProtocol The MURI Protocol contract address
-    constructor(address _muriProtocol) {
+    /// @param _owner The initial owner of the contract
+    constructor(address _muriProtocol, address _owner) {
         muriProtocol = IMURIProtocol(_muriProtocol);
+        _transferOwnership(_owner);
     }
 
     /*//////////////////////////////////////////////////////////////

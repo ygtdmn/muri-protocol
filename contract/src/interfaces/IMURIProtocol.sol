@@ -15,18 +15,16 @@ interface IMURIProtocol {
     enum DisplayMode {
         DIRECT_FILE, // Shows selected artwork as static file
         HTML // Shows interactive HTML experience with all artworks
-
     }
 
     /// @notice Thumbnail storage type discriminator
     enum ThumbnailKind {
         ON_CHAIN, // Stored on-chain using SSTORE2
         OFF_CHAIN // Referenced by URI array
-
     }
 
     /*//////////////////////////////////////////////////////////////
-                            DATA STRUCTURES  
+                            DATA STRUCTURES
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Artwork configuration and URIs
@@ -319,13 +317,7 @@ interface IMURIProtocol {
     /// @param contractAddress The creator contract address
     /// @param tokenId The token ID
     /// @return Array of collector artwork URIs
-    function getCollectorArtworkUris(
-        address contractAddress,
-        uint256 tokenId
-    )
-        external
-        view
-        returns (string[] memory);
+    function getCollectorArtworkUris(address contractAddress, uint256 tokenId) external view returns (string[] memory);
 
     /// @notice Get all thumbnail URIs for a token (off-chain only)
     /// @param contractAddress The creator contract address

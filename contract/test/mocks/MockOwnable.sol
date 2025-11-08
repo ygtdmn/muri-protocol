@@ -11,10 +11,17 @@ contract MockOwnable is Ownable, IMURIProtocolCreator {
     }
 
     function isTokenOwner(
-        address /* creatorContract */,
-        address /* account */,
+        address,
+        /* creatorContract */
+        address,
+        /* account */
         uint256 /* tokenId */
-    ) external pure override returns (bool) {
+    )
+        external
+        pure
+        override
+        returns (bool)
+    {
         // MockOwnable doesn't have actual token ownership, so return false
         return false;
     }

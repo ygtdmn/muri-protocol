@@ -10,6 +10,7 @@ const COOKIE_NAMES = {
 	SESSION_TOKEN: "manifold_session_token",
 	EXPIRES_AT: "manifold_expires_at",
 	WALLET_ADDRESS: "manifold_wallet_address",
+	CHAIN_ID: "manifold_chain_id",
 };
 
 function setCookie(name: string, value: string, hoursToExpire: number = 1) {
@@ -46,6 +47,7 @@ function clearAuthCookies() {
 	deleteCookie(COOKIE_NAMES.SESSION_TOKEN);
 	deleteCookie(COOKIE_NAMES.EXPIRES_AT);
 	deleteCookie(COOKIE_NAMES.WALLET_ADDRESS);
+	deleteCookie(COOKIE_NAMES.CHAIN_ID);
 }
 
 export function useManifoldAuth() {
@@ -56,9 +58,10 @@ export function useManifoldAuth() {
 	const [isAuthenticating, setIsAuthenticating] = useState(false);
 	const [authenticatedAddress, setAuthenticatedAddress] = useState<string | null>(null);
 
-	// Initialize from cookies on mount and when address changes
+	// Initialize from cookies on mount and when address or chainId changes
 	useEffect(() => {
 		const cachedAddress = getCookie(COOKIE_NAMES.WALLET_ADDRESS);
+		const cachedChainId = getCookie(COOKIE_NAMES.CHAIN_ID);
 		
 		// If wallet address changed, clear old authentication
 		if (cachedAddress && address && cachedAddress.toLowerCase() !== address.toLowerCase()) {
@@ -78,6 +81,11 @@ export function useManifoldAuth() {
 			return;
 		}
 		
+		// If network changed, update the cached chain ID but keep tokens
+		if (cachedChainId && chainId && cachedChainId !== chainId.toString()) {
+			setCookie(COOKIE_NAMES.CHAIN_ID, chainId.toString(), 1);
+		}
+		
 		// Check if authentication expired
 		if (isAuthExpired()) {
 			clearAuthCookies();
@@ -89,13 +97,14 @@ export function useManifoldAuth() {
 			const accessToken = getCookie(COOKIE_NAMES.ACCESS_TOKEN);
 			const sessionToken = getCookie(COOKIE_NAMES.SESSION_TOKEN);
 			
-			if (accessToken && sessionToken && cachedAddress?.toLowerCase() === address?.toLowerCase()) {
+			if (accessToken && sessionToken && 
+			    cachedAddress?.toLowerCase() === address?.toLowerCase()) {
 				setToken(accessToken);
 				setSession(sessionToken);
 				setAuthenticatedAddress(address);
 			}
 		}
-	}, [address]);
+	}, [address, chainId]);
 
 
 	const authenticate = async () => {
@@ -203,12 +212,13 @@ export function useManifoldAuth() {
 			const sessionToken = sessionData.token as string;
 			if (!sessionToken) throw new Error("Failed to get session token");
 
-			// Save tokens and wallet address to cookies with 1-hour expiration
+			// Save tokens, wallet address, and chain ID to cookies with 1-hour expiration
 			const expiresAt = Date.now() + 60 * 60 * 1000; // 1 hour from now
 			setCookie(COOKIE_NAMES.ACCESS_TOKEN, accessToken, 1);
 			setCookie(COOKIE_NAMES.SESSION_TOKEN, sessionToken, 1);
 			setCookie(COOKIE_NAMES.EXPIRES_AT, expiresAt.toString(), 1);
 			setCookie(COOKIE_NAMES.WALLET_ADDRESS, address, 1);
+			setCookie(COOKIE_NAMES.CHAIN_ID, chainId.toString(), 1);
 
 			setToken(accessToken);
 			setSession(sessionToken);

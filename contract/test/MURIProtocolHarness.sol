@@ -4,7 +4,7 @@ pragma solidity >=0.8.30 <0.9.0;
 import { MURIProtocol } from "src/MURIProtocol.sol";
 
 contract MURIProtocolHarness is MURIProtocol {
-    constructor() MURIProtocol("<html>{{FILE_URIS}}</html>", false) { }
+    constructor() MURIProtocol("<html>{{FILE_URIS}}</html>", false, msg.sender) { }
 
     function isContractAdminPublic(address contractAddress) external view returns (bool) {
         return _isContractAdmin(contractAddress, msg.sender);
@@ -14,38 +14,17 @@ contract MURIProtocolHarness is MURIProtocol {
         return _isTokenOwner(contractAddress, tokenId, msg.sender);
     }
 
-    function resolveThumbnailUriPublic(
-        address contractAddress,
-        uint256 tokenId
-    )
-        external
-        view
-        returns (string memory)
-    {
+    function resolveThumbnailUriPublic(address contractAddress, uint256 tokenId) external view returns (string memory) {
         Token storage token = tokenData[contractAddress][tokenId];
         return _resolveThumbnailUri(token);
     }
 
-    function combinedArtworkUrisPublic(
-        address contractAddress,
-        uint256 tokenId
-    )
-        external
-        view
-        returns (string memory)
-    {
+    function combinedArtworkUrisPublic(address contractAddress, uint256 tokenId) external view returns (string memory) {
         Token storage token = tokenData[contractAddress][tokenId];
         return _combinedArtworkUris(token);
     }
 
-    function loadOnChainThumbnailPublic(
-        address contractAddress,
-        uint256 tokenId
-    )
-        external
-        view
-        returns (bytes memory)
-    {
+    function loadOnChainThumbnailPublic(address contractAddress, uint256 tokenId) external view returns (bytes memory) {
         Token storage token = tokenData[contractAddress][tokenId];
         return _loadOnChainThumbnail(token.thumbnail.onChain);
     }

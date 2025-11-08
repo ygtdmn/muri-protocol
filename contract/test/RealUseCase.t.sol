@@ -27,8 +27,9 @@ contract RealUseCaseTest is Test {
         string memory metadata =
             unicode"\"name\": \"Off-Chain Art\",\"description\": \"An artwork that blends six historic paintings which were altered without the artists' intent: The Night Watch by Rembrandt, The Last Supper by Leonardo da Vinci, The Vision of Saint John by El Greco, The Last Judgement by Michelangelo, Las Meninas by Diego Velázquez, and The Death of Actaeon by Titian.\",\"attributes\": [{\"trait_type\": \"Artwork 1\", \"value\": \"The Night Watch by Rembrandt\"}, {\"trait_type\": \"Artwork 2\", \"value\": \"The Last Supper by Leonardo da Vinci\"}, {\"trait_type\": \"Artwork 3\", \"value\": \"The Vision of Saint John by El Greco\"}, {\"trait_type\": \"Artwork 4\", \"value\": \"The Last Judgement by Michelangelo\"}, {\"trait_type\": \"Artwork 5\", \"value\": \"Las Meninas by Diego Velázquez\"}, {\"trait_type\": \"Artwork 6\", \"value\": \"The Death of Actaeon by Titian\"}]";
 
-        MURIProtocol muriProtocol = new MURIProtocol(htmlTemplate, false);
-        MURIProtocolManifoldExtension extension = new MURIProtocolManifoldExtension(address(muriProtocol));
+        MURIProtocol muriProtocol = new MURIProtocol(htmlTemplate, false, address(this));
+        MURIProtocolManifoldExtension extension =
+            new MURIProtocolManifoldExtension(address(muriProtocol), address(this));
 
         IERC1155CreatorCore ephemera = IERC1155CreatorCore(address(0xCb337152b6181683010D07e3f00e7508cd348BC7));
         ephemera.registerExtension(address(extension), "");

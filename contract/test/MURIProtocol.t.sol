@@ -59,9 +59,9 @@ contract MURIProtocolTest is Test {
         vm.startPrank(owner);
 
         // Deploy main contracts
-        muriProtocol = new MURIProtocol(DEFAULT_HTML_TEMPLATE, false);
+        muriProtocol = new MURIProtocol(DEFAULT_HTML_TEMPLATE, false, owner);
         harness = new MURIProtocolHarness();
-        extension = new MockMURIProtocolExtension(address(muriProtocol));
+        extension = new MockMURIProtocolExtension(address(muriProtocol), owner);
 
         // Deploy admin control and set artist as admin
         adminControl = new MockAdminControl();
@@ -665,7 +665,7 @@ contract MURIProtocolTest is Test {
         vm.prank(artist, artist);
         vm.expectRevert(abi.encodeWithSelector(IMURIProtocol.InvalidIndexRange.selector));
         muriProtocol.updateThumbnail(address(adminControl), TEST_TOKEN_ID, newThumbnail, new bytes[](0)); // Empty
-            // chunks
+        // chunks
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -773,8 +773,8 @@ contract MURIProtocolTest is Test {
         // Verify other permissions still work
         vm.prank(artist, artist);
         muriProtocol.setDisplayMode(address(adminControl), TEST_TOKEN_ID, IMURIProtocol.DisplayMode.HTML); // Should
-            // still
-            // work
+        // still
+        // work
     }
 
     function test_revokeAllArtistPermissions() public {
@@ -1573,7 +1573,7 @@ contract MURIProtocolTest is Test {
         // First initialize a new token on mockERC721 for this test
         config = _createValidInitConfig();
         config.permissions.flags = config.permissions.flags & ~ARTIST_CHOOSE_THUMB; // Remove the permission we want to
-            // test
+        // test
 
         vm.prank(artist, artist);
         extension.initializeTokenData(address(mockERC721), 2, config, new bytes[](0), new string[](0));
