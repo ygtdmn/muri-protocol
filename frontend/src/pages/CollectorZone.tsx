@@ -1,8 +1,8 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import {
 	useWriteContract,
 	useWaitForTransactionReceipt,
-	useReadContract,
+	useReadContracts,
 } from "wagmi";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import type { Address } from "viem";
@@ -11,6 +11,26 @@ import Header from "../components/Header";
 import { useTheme } from "../hooks/useTheme";
 import Footer from "../components/Footer";
 import PageBackground from "../components/PageBackground";
+import { readError, readResult } from "../utils/readResults";
+
+type TokenPermissions = {
+	flags: number;
+};
+
+type TokenArtwork = {
+	selectedArtistUriIndex: bigint;
+};
+
+type TokenData = readonly [
+	string,
+	unknown,
+	TokenArtwork,
+	TokenPermissions,
+	number,
+	unknown,
+];
+
+type ThumbnailInfo = readonly [number, bigint];
 
 export default function CollectorZone() {
 	const [sp] = useSearchParams();
@@ -38,86 +58,91 @@ export default function CollectorZone() {
 	const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
 		hash,
 	});
+	const refetchedSuccessHash = useRef<`0x${string}` | undefined>(undefined);
+	const muriAddress = import.meta.env.VITE_MURI_ADDRESS as Address;
+	const hasTokenSelection = Boolean(creator && /^\d+$/.test(tokenId.trim()));
+	const tokenIdBigInt = useMemo(() => {
+		try {
+			return tokenId.trim() ? BigInt(tokenId.trim()) : 0n;
+		} catch {
+			return 0n;
+		}
+	}, [tokenId]);
 
-	// Read token data from contract
+	const tokenReadContracts = useMemo(() => {
+		if (!hasTokenSelection) return undefined;
+
+		const tokenArgs = [creator, tokenIdBigInt] as const;
+		return [
+			{
+				abi: muriAbi,
+				address: muriAddress,
+				functionName: "tokenData",
+				args: tokenArgs,
+			},
+			{
+				abi: muriAbi,
+				address: muriAddress,
+				functionName: "getPermissions",
+				args: tokenArgs,
+			},
+			{
+				abi: muriAbi,
+				address: muriAddress,
+				functionName: "getArtwork",
+				args: tokenArgs,
+			},
+			{
+				abi: muriAbi,
+				address: muriAddress,
+				functionName: "getThumbnailInfo",
+				args: tokenArgs,
+			},
+			{
+				abi: muriAbi,
+				address: muriAddress,
+				functionName: "getArtistArtworkUris",
+				args: tokenArgs,
+			},
+			{
+				abi: muriAbi,
+				address: muriAddress,
+				functionName: "getCollectorArtworkUris",
+				args: tokenArgs,
+			},
+			{
+				abi: muriAbi,
+				address: muriAddress,
+				functionName: "getThumbnailUris",
+				args: tokenArgs,
+			},
+		] as const;
+	}, [creator, hasTokenSelection, muriAddress, tokenIdBigInt]);
+
 	const {
-		data: tokenData,
-		error: tokenDataError,
+		data: tokenReadResults,
+		error: tokenReadsError,
 		isLoading: tokenDataLoading,
-		refetch: refetchTokenData,
-	} = useReadContract({
-		abi: muriAbi,
-		address: import.meta.env.VITE_MURI_ADDRESS as Address,
-		functionName: "tokenData",
-		args: [creator, BigInt(tokenId || 0)],
-		query: { enabled: !!creator && !!tokenId },
+		refetch: refetchTokenReads,
+	} = useReadContracts({
+		allowFailure: true,
+		contracts: tokenReadContracts,
+		query: {
+			enabled: hasTokenSelection,
+			staleTime: 30_000,
+		},
 	});
 
-	// Read permissions separately
-	const { data: permissions } = useReadContract({
-		abi: muriAbi,
-		address: import.meta.env.VITE_MURI_ADDRESS as Address,
-		functionName: "getPermissions",
-		args: [creator, BigInt(tokenId || 0)],
-		query: { enabled: !!creator && !!tokenId },
-	});
-
-	// Read artwork data
-	const { data: artwork } = useReadContract({
-		abi: muriAbi,
-		address: import.meta.env.VITE_MURI_ADDRESS as Address,
-		functionName: "getArtwork",
-		args: [creator, BigInt(tokenId || 0)],
-		query: { enabled: !!creator && !!tokenId },
-	});
-
-	// Read thumbnail info
-	const { data: thumbnailInfo } = useReadContract({
-		abi: muriAbi,
-		address: import.meta.env.VITE_MURI_ADDRESS as Address,
-		functionName: "getThumbnailInfo",
-		args: [creator, BigInt(tokenId || 0)],
-		query: { enabled: !!creator && !!tokenId },
-	});
-
-	// Read artist artwork URIs
-	const { data: artistArtworkUris, refetch: refetchArtworkUris } =
-		useReadContract({
-			abi: muriAbi,
-			address: import.meta.env.VITE_MURI_ADDRESS as Address,
-			functionName: "getArtistArtworkUris",
-			args: [creator, BigInt(tokenId || 0)],
-			query: { enabled: !!creator && !!tokenId },
-		});
-
-	// Read collector artwork URIs
-	const { data: collectorArtworkUris, refetch: refetchCollectorUris } =
-		useReadContract({
-			abi: muriAbi,
-			address: import.meta.env.VITE_MURI_ADDRESS as Address,
-			functionName: "getCollectorArtworkUris",
-			args: [creator, BigInt(tokenId || 0)],
-			query: { enabled: !!creator && !!tokenId },
-		});
-
-	// Read artist thumbnail URIs
-	const { data: artistThumbnailUris, refetch: refetchThumbnailUris } =
-		useReadContract({
-			abi: muriAbi,
-			address: import.meta.env.VITE_MURI_ADDRESS as Address,
-			functionName: "getThumbnailUris",
-			args: [creator, BigInt(tokenId || 0)],
-			query: { enabled: !!creator && !!tokenId },
-		});
-
-	// Test contract connection with a simple view function
-	const { data: htmlTemplate, error: contractError } = useReadContract({
-		abi: muriAbi,
-		address: import.meta.env.VITE_MURI_ADDRESS as Address,
-		functionName: "getDefaultHtmlTemplate",
-		args: [],
-		query: { enabled: true },
-	});
+	const tokenData = readResult<TokenData>(tokenReadResults?.[0]);
+	const tokenDataError = readError(tokenReadResults?.[0]) ?? tokenReadsError;
+	const permissions = readResult<TokenPermissions>(tokenReadResults?.[1]);
+	const artwork = readResult<TokenArtwork>(tokenReadResults?.[2]);
+	const thumbnailInfo = readResult<ThumbnailInfo>(tokenReadResults?.[3]);
+	const artistArtworkUris = readResult<readonly string[]>(tokenReadResults?.[4]);
+	const collectorArtworkUris = readResult<readonly string[]>(
+		tokenReadResults?.[5]
+	);
+	const artistThumbnailUris = readResult<readonly string[]>(tokenReadResults?.[6]);
 
 	// Initialize data from contract when data loads
 	useEffect(() => {
@@ -154,47 +179,31 @@ export default function CollectorZone() {
 		isHtmlMode,
 	} = permissionsData;
 
-	// Debug logging
-	useEffect(() => {
-		console.log(
-			"CollectorZone Debug - Contract Address:",
-			import.meta.env.VITE_MURI_ADDRESS
-		);
-		console.log("CollectorZone Debug - Creator:", creator);
-		console.log("CollectorZone Debug - Token ID:", tokenId);
-		console.log("CollectorZone Debug - Token Data:", tokenData);
-		console.log(
-			"CollectorZone Debug - Contract Connection:",
-			htmlTemplate ? "Connected" : "Failed"
-		);
-		console.log("CollectorZone Debug - Contract Error:", contractError);
-	}, [creator, tokenId, tokenData, htmlTemplate, contractError]);
-
 	// Contract interaction functions
 	const updateDisplayMode = () => {
 		writeContract({
 			abi: muriAbi,
-			address: import.meta.env.VITE_MURI_ADDRESS as Address,
+			address: muriAddress,
 			functionName: "setDisplayMode",
-			args: [creator, BigInt(tokenId), displayMode],
+			args: [creator, tokenIdBigInt, displayMode],
 		});
 	};
 
 	const updateArtworkSelection = () => {
 		writeContract({
 			abi: muriAbi,
-			address: import.meta.env.VITE_MURI_ADDRESS as Address,
+			address: muriAddress,
 			functionName: "setSelectedUri",
-			args: [creator, BigInt(tokenId), BigInt(selectedArtworkIndex)],
+			args: [creator, tokenIdBigInt, BigInt(selectedArtworkIndex)],
 		});
 	};
 
 	const updateThumbnailSelection = () => {
 		writeContract({
 			abi: muriAbi,
-			address: import.meta.env.VITE_MURI_ADDRESS as Address,
+			address: muriAddress,
 			functionName: "setSelectedThumbnailUri",
-			args: [creator, BigInt(tokenId), BigInt(selectedThumbnailIndex)],
+			args: [creator, tokenIdBigInt, BigInt(selectedThumbnailIndex)],
 		});
 	};
 
@@ -202,9 +211,9 @@ export default function CollectorZone() {
 		if (!newArtworkUri.trim()) return;
 		writeContract({
 			abi: muriAbi,
-			address: import.meta.env.VITE_MURI_ADDRESS as Address,
+			address: muriAddress,
 			functionName: "addArtworkUris",
-			args: [creator, BigInt(tokenId), [newArtworkUri.trim()]],
+			args: [creator, tokenIdBigInt, [newArtworkUri.trim()]],
 		});
 		setNewArtworkUri("");
 	};
@@ -212,27 +221,19 @@ export default function CollectorZone() {
 	const removeCollectorArtworkUri = (index: number) => {
 		writeContract({
 			abi: muriAbi,
-			address: import.meta.env.VITE_MURI_ADDRESS as Address,
+			address: muriAddress,
 			functionName: "removeArtworkUris",
-			args: [creator, BigInt(tokenId), [BigInt(index)]],
+			args: [creator, tokenIdBigInt, [BigInt(index)]],
 		});
 	};
 
 	// Effect to refetch data after successful transactions
 	useEffect(() => {
-		if (isSuccess) {
-			refetchTokenData();
-			refetchArtworkUris();
-			refetchCollectorUris();
-			refetchThumbnailUris();
+		if (isSuccess && hash && refetchedSuccessHash.current !== hash) {
+			refetchedSuccessHash.current = hash;
+			refetchTokenReads();
 		}
-	}, [
-		isSuccess,
-		refetchTokenData,
-		refetchArtworkUris,
-		refetchCollectorUris,
-		refetchThumbnailUris,
-	]);
+	}, [hash, isSuccess, refetchTokenReads]);
 
 	if (!creator) {
 		return (
@@ -473,39 +474,6 @@ export default function CollectorZone() {
 									</div>
 								</div>
 
-								{/* Contract Connection Status */}
-								<div
-									className={`mt-4 p-3 ${
-										isDarkMode
-											? "bg-zinc-900"
-											: "bg-zinc-50 border border-zinc-300"
-									} rounded text-xs`}
-								>
-									<div className="flex justify-between items-center">
-										<span
-											className={`${
-												isDarkMode ? "text-zinc-400" : "text-zinc-600"
-											}`}
-										>
-											Contract Status:
-										</span>
-										<span
-											className={
-												contractError
-													? "text-red-400"
-													: htmlTemplate
-													? "text-green-400"
-													: "text-yellow-400"
-											}
-										>
-											{contractError
-												? "Connection Failed"
-												: htmlTemplate
-												? "Connected"
-												: "Checking..."}
-										</span>
-									</div>
-								</div>
 							</>
 						) : null}
 					</div>
@@ -900,11 +868,11 @@ export default function CollectorZone() {
 										<li>• Contract not deployed or wrong address</li>
 										<li>• Network connection issue</li>
 									</ul>
-								</div>
-								<button
-									onClick={() => refetchTokenData()}
-									className="btn-ghost text-red-300 hover:text-red-200 mt-4"
-								>
+									</div>
+									<button
+										onClick={() => void refetchTokenReads()}
+										className="btn-ghost text-red-300 hover:text-red-200 mt-4"
+									>
 									Retry Loading
 								</button>
 							</div>

@@ -1,22 +1,22 @@
-import { useEffect } from "react";
-import {
-	useWriteContract,
-	useWaitForTransactionReceipt,
-	useReadContract,
-	useSimulateContract,
-} from "wagmi";
+import { useEffect, useRef, useState } from "react";
+import { useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import { simulateContract } from "wagmi/actions";
 import type { Address } from "viem";
 import { muriAbi } from "../abis/muri-abi";
+import { wagmiConfig } from "../lib/wagmi";
 import { useTheme } from "../hooks/useTheme";
 import { RefreshCw } from "lucide-react";
+import { getPreflightMessage, isRpcTransportError } from "../utils/rpcErrors";
 
 interface RegisterMURIProps {
 	creator: Address;
+	isRegistered: boolean;
 	onSuccess?: () => void;
 }
 
 export default function RegisterMURI({
 	creator,
+	isRegistered,
 	onSuccess,
 }: RegisterMURIProps) {
 	const { isDarkMode } = useTheme();
@@ -28,26 +28,29 @@ export default function RegisterMURI({
 	const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
 		hash,
 	});
+	const [isPreflighting, setIsPreflighting] = useState(false);
+	const [preflightMessage, setPreflightMessage] = useState<string | null>(null);
+	const reportedSuccessHash = useRef<`0x${string}` | undefined>(undefined);
 
-	// Check if contract is already registered with MURI Protocol
-	const { data: isRegistered } = useReadContract({
-		abi: muriAbi,
-		address: muriAddress,
-		functionName: "isContractOperator",
-		args: [creator, muriExtensionAddress],
-		query: { enabled: !!creator },
-	});
+	const handleRegister = async () => {
+		setPreflightMessage(null);
+		setIsPreflighting(true);
+		try {
+			await simulateContract(wagmiConfig, {
+				abi: muriAbi,
+				address: muriAddress,
+				functionName: "registerContract",
+				args: [creator, muriExtensionAddress],
+			});
+		} catch (error) {
+			setPreflightMessage(getPreflightMessage(error));
+			if (!isRpcTransportError(error)) {
+				return;
+			}
+		} finally {
+			setIsPreflighting(false);
+		}
 
-	// Simulate the registration to catch errors
-	const { error: simulateError } = useSimulateContract({
-		abi: muriAbi,
-		address: muriAddress,
-		functionName: "registerContract",
-		args: [creator, muriExtensionAddress],
-		query: { enabled: !!creator && !isRegistered },
-	});
-
-	const handleRegister = () => {
 		writeContract({
 			abi: muriAbi,
 			address: muriAddress,
@@ -58,10 +61,15 @@ export default function RegisterMURI({
 
 	// Call onSuccess callback when transaction is successful
 	useEffect(() => {
-		if (isSuccess && onSuccess) {
-			onSuccess();
+		if (isSuccess && hash && reportedSuccessHash.current !== hash) {
+			reportedSuccessHash.current = hash;
+			onSuccess?.();
 		}
-	}, [isSuccess, onSuccess]);
+	}, [hash, isSuccess, onSuccess]);
+
+	useEffect(() => {
+		setPreflightMessage(null);
+	}, [creator]);
 
 	// Show success message for recent transaction
 	if (isSuccess) {
@@ -144,32 +152,32 @@ export default function RegisterMURI({
 			</div>
 
 			<button
-				onClick={handleRegister}
+				onClick={() => void handleRegister()}
 				className={`
 					w-full px-6 py-3 rounded-lg font-semibold
 					transition-all duration-200
 					${
 						isPending ||
 						isConfirming ||
+						isPreflighting ||
 						!creator ||
-						isRegistered ||
-						!!simulateError
+						isRegistered
 							? "opacity-50 cursor-not-allowed bg-surface-hover-light dark:bg-surface-hover-dark text-text-tertiary-light dark:text-text-tertiary-dark"
 							: "bg-primary hover:bg-primary-hover dark:bg-primary-dark dark:hover:bg-primary-dark-hover text-white shadow-soft hover:shadow-medium"
 					}
 				`}
 				disabled={
-					isPending ||
-					isConfirming ||
-					!creator ||
-					isRegistered ||
-					!!simulateError
+					isPending || isConfirming || isPreflighting || !creator || isRegistered
 				}
 			>
-				{isPending || isConfirming ? (
+				{isPending || isConfirming || isPreflighting ? (
 					<span className="flex items-center justify-center gap-2">
 						<RefreshCw className="w-4 h-4 animate-spin" />
-						{isPending ? "Registering..." : "Confirming..."}
+						{isPreflighting
+							? "Checking..."
+							: isPending
+							? "Registering..."
+							: "Confirming..."}
 					</span>
 				) : isRegistered ? (
 					"✓ Already Registered"
@@ -178,7 +186,7 @@ export default function RegisterMURI({
 				)}
 			</button>
 
-			{simulateError && (
+			{preflightMessage && (
 				<div
 					className={`
 						mt-3 p-3 rounded-lg
@@ -195,7 +203,7 @@ export default function RegisterMURI({
 							${isDarkMode ? "text-warning-dark" : "text-warning"}
 						`}
 					>
-						Transaction will fail: {simulateError.message}
+						{preflightMessage}
 					</p>
 				</div>
 			)}

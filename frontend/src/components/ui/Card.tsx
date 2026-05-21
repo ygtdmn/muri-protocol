@@ -1,4 +1,4 @@
-import type { ReactNode, HTMLAttributes } from 'react';
+import type { ReactNode, HTMLAttributes, KeyboardEvent } from 'react';
 
 export type CardVariant = 'default' | 'hover' | 'bordered' | 'subtle';
 export type CardPadding = 'none' | 'sm' | 'md' | 'lg';
@@ -69,10 +69,10 @@ export function Card({
 			tabIndex={onClick ? 0 : undefined}
 			onKeyDown={
 				onClick
-					? (e) => {
+					? (e: KeyboardEvent<HTMLDivElement>) => {
 							if (e.key === 'Enter' || e.key === ' ') {
 								e.preventDefault();
-								onClick(e as any);
+								e.currentTarget.click();
 							}
 					  }
 					: undefined
@@ -83,4 +83,3 @@ export function Card({
 		</div>
 	);
 }
-

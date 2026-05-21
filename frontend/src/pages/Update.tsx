@@ -1,13 +1,14 @@
-import { useMemo, useState, useCallback, useEffect } from "react";
+import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import {
 	useWriteContract,
 	useWaitForTransactionReceipt,
-	useReadContract,
-	useSimulateContract,
+	useReadContracts,
 } from "wagmi";
+import { simulateContract } from "wagmi/actions";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import type { Address } from "viem";
 import { muriAbi } from "../abis/muri-abi";
+import { wagmiConfig } from "../lib/wagmi";
 import fastlz from "../lib/fastlz";
 import {
 	isThumbnailSupported,
@@ -20,6 +21,27 @@ import Header from "../components/Header";
 import { useTheme } from "../hooks/useTheme";
 import Footer from "../components/Footer";
 import PageBackground from "../components/PageBackground";
+import { getPreflightMessage, isRpcTransportError } from "../utils/rpcErrors";
+import { readError, readResult } from "../utils/readResults";
+
+type TokenPermissions = {
+	flags: number;
+};
+
+type TokenArtwork = {
+	selectedArtistUriIndex: bigint;
+};
+
+type TokenData = readonly [
+	string,
+	unknown,
+	TokenArtwork,
+	TokenPermissions,
+	number,
+	unknown,
+];
+
+type ThumbnailInfo = readonly [number, bigint];
 
 export default function Update() {
 	const [sp] = useSearchParams();
@@ -87,102 +109,83 @@ export default function Update() {
 
 	// Track which action is currently being performed
 	const [currentAction, setCurrentAction] = useState<string | null>(null);
+	const [preflightMessage, setPreflightMessage] = useState<string | null>(null);
+	const refetchedSuccessHash = useRef<`0x${string}` | undefined>(undefined);
+	const muriAddress = import.meta.env.VITE_MURI_ADDRESS as Address;
+	const hasTokenSelection = Boolean(creator && /^\d+$/.test(tokenId.trim()));
+	const tokenIdBigInt = useMemo(() => {
+		try {
+			return tokenId.trim() ? BigInt(tokenId.trim()) : 0n;
+		} catch {
+			return 0n;
+		}
+	}, [tokenId]);
 
-	// Read token data from contract
+	const tokenReadContracts = useMemo(() => {
+		if (!hasTokenSelection) return undefined;
+
+		const tokenArgs = [creator, tokenIdBigInt] as const;
+		return [
+			{
+				abi: muriAbi,
+				address: muriAddress,
+				functionName: "tokenData",
+				args: tokenArgs,
+			},
+			{
+				abi: muriAbi,
+				address: muriAddress,
+				functionName: "getPermissions",
+				args: tokenArgs,
+			},
+			{
+				abi: muriAbi,
+				address: muriAddress,
+				functionName: "getArtwork",
+				args: tokenArgs,
+			},
+			{
+				abi: muriAbi,
+				address: muriAddress,
+				functionName: "getThumbnailInfo",
+				args: tokenArgs,
+			},
+			{
+				abi: muriAbi,
+				address: muriAddress,
+				functionName: "getArtistArtworkUris",
+				args: tokenArgs,
+			},
+			{
+				abi: muriAbi,
+				address: muriAddress,
+				functionName: "getThumbnailUris",
+				args: tokenArgs,
+			},
+		] as const;
+	}, [creator, hasTokenSelection, muriAddress, tokenIdBigInt]);
+
 	const {
-		data: tokenData,
-		error: tokenDataError,
+		data: tokenReadResults,
+		error: tokenReadsError,
 		isLoading: tokenDataLoading,
-		refetch: refetchTokenData,
-	} = useReadContract({
-		abi: muriAbi,
-		address: import.meta.env.VITE_MURI_ADDRESS as Address,
-		functionName: "tokenData",
-		args: [creator, BigInt(tokenId || 0)],
-		query: { enabled: !!creator && !!tokenId },
+		refetch: refetchTokenReads,
+	} = useReadContracts({
+		allowFailure: true,
+		contracts: tokenReadContracts,
+		query: {
+			enabled: hasTokenSelection,
+			staleTime: 30_000,
+		},
 	});
 
-	// Read permissions separately
-	const { data: permissions } = useReadContract({
-		abi: muriAbi,
-		address: import.meta.env.VITE_MURI_ADDRESS as Address,
-		functionName: "getPermissions",
-		args: [creator, BigInt(tokenId || 0)],
-		query: { enabled: !!creator && !!tokenId },
-	});
-
-	// Read artwork data
-	const { data: artwork } = useReadContract({
-		abi: muriAbi,
-		address: import.meta.env.VITE_MURI_ADDRESS as Address,
-		functionName: "getArtwork",
-		args: [creator, BigInt(tokenId || 0)],
-		query: { enabled: !!creator && !!tokenId },
-	});
-
-	// Read thumbnail info
-	const { data: thumbnailInfo } = useReadContract({
-		abi: muriAbi,
-		address: import.meta.env.VITE_MURI_ADDRESS as Address,
-		functionName: "getThumbnailInfo",
-		args: [creator, BigInt(tokenId || 0)],
-		query: { enabled: !!creator && !!tokenId },
-	});
-
-	// Test contract connection with a simple view function
-	const { data: htmlTemplate, error: contractError } = useReadContract({
-		abi: muriAbi,
-		address: import.meta.env.VITE_MURI_ADDRESS as Address,
-		functionName: "getDefaultHtmlTemplate",
-		args: [],
-		query: { enabled: true },
-	});
-
-	// Debug logging
-	useEffect(() => {
-		console.log(
-			"Debug - Contract Address:",
-			import.meta.env.VITE_MURI_ADDRESS
-		);
-		console.log("Debug - Creator:", creator);
-		console.log("Debug - Token ID:", tokenId);
-		console.log("Debug - Token Data:", tokenData);
-		console.log("Debug - Token Data Error:", tokenDataError);
-		console.log("Debug - Token Data Loading:", tokenDataLoading);
-		console.log(
-			"Debug - Contract Connection Test:",
-			htmlTemplate ? "Connected" : "Failed"
-		);
-		console.log("Debug - Contract Error:", contractError);
-	}, [
-		creator,
-		tokenId,
-		tokenData,
-		tokenDataError,
-		tokenDataLoading,
-		htmlTemplate,
-		contractError,
-	]);
-
-	// Read artist artwork URIs
-	const { data: artistArtworkUris, refetch: refetchArtworkUris } =
-		useReadContract({
-			abi: muriAbi,
-			address: import.meta.env.VITE_MURI_ADDRESS as Address,
-			functionName: "getArtistArtworkUris",
-			args: [creator, BigInt(tokenId || 0)],
-			query: { enabled: !!creator && !!tokenId },
-		});
-
-	// Read thumbnail URIs (only for off-chain thumbnails)
-	const { data: artistThumbnailUris, refetch: refetchThumbnailUris } =
-		useReadContract({
-			abi: muriAbi,
-			address: import.meta.env.VITE_MURI_ADDRESS as Address,
-			functionName: "getThumbnailUris",
-			args: [creator, BigInt(tokenId || 0)],
-			query: { enabled: !!creator && !!tokenId && thumbnailInfo?.[0] === 1 },
-		});
+	const tokenData = readResult<TokenData>(tokenReadResults?.[0]);
+	const tokenDataError = readError(tokenReadResults?.[0]) ?? tokenReadsError;
+	const permissions = readResult<TokenPermissions>(tokenReadResults?.[1]);
+	const artwork = readResult<TokenArtwork>(tokenReadResults?.[2]);
+	const thumbnailInfo = readResult<ThumbnailInfo>(tokenReadResults?.[3]);
+	const artistArtworkUris = readResult<readonly string[]>(tokenReadResults?.[4]);
+	const artistThumbnailUris = readResult<readonly string[]>(tokenReadResults?.[5]);
 
 	// Initialize data from contract when data loads
 	useEffect(() => {
@@ -317,76 +320,6 @@ export default function Update() {
 		return fields.join(",");
 	}, [name, description, attributes]);
 
-	// Simulate contract calls for error checking
-	const { error: simulateMetadataError } = useSimulateContract({
-		abi: muriAbi,
-		address: import.meta.env.VITE_MURI_ADDRESS as Address,
-		functionName: "updateMetadata",
-		args: [creator, BigInt(tokenId || 0), metadataJson],
-		query: {
-			enabled:
-				!!creator &&
-				!!tokenId &&
-				!!metadataJson &&
-				hasArtistUpdateMetaPermission,
-		},
-	});
-
-	const { error: simulateDisplayError } = useSimulateContract({
-		abi: muriAbi,
-		address: import.meta.env.VITE_MURI_ADDRESS as Address,
-		functionName: "setDisplayMode",
-		args: [creator, BigInt(tokenId || 0), displayMode],
-		query: { enabled: !!creator && !!tokenId },
-	});
-
-	const { error: simulateHtmlTemplateError } = useSimulateContract({
-		abi: muriAbi,
-		address: import.meta.env.VITE_MURI_ADDRESS as Address,
-		functionName: "updateHtmlTemplate",
-		args: [creator, BigInt(tokenId || 0), htmlTemplateChunks, false],
-		query: {
-			enabled:
-				!!creator &&
-				!!tokenId &&
-				htmlTemplateChunks.length > 0 &&
-				hasArtistUpdateTemplatePermission,
-		},
-	});
-
-	const { error: simulateThumbnailError } = useSimulateContract({
-		abi: muriAbi,
-		address: import.meta.env.VITE_MURI_ADDRESS as Address,
-		functionName: "updateThumbnail",
-		args: [
-			creator,
-			BigInt(tokenId || 0),
-			{
-				kind: 1, // OFF_CHAIN
-				onChain: {
-					mimeType: "",
-					chunks: [] as Address[],
-					zipped: false,
-				},
-				offChain: {
-					uris: thumbnailUriList,
-					selectedUriIndex: BigInt(
-						Math.min(selectedThumbnailIndex, thumbnailUriList.length - 1)
-					),
-				},
-			},
-			[],
-		],
-		query: {
-			enabled:
-				!!creator &&
-				!!tokenId &&
-				thumbnailUriList.length > 0 &&
-				!isOnChainThumbnail &&
-				hasArtistUpdateThumbPermission,
-		},
-	});
-
 	// Check if any permissions are selected for revocation
 	const hasPermissionsToRevoke =
 		revokeUpdateThumbnail ||
@@ -397,47 +330,42 @@ export default function Update() {
 		revokeUpdateDisplayMode ||
 		revokeUpdateTemplate;
 
-	const { error: simulateRevokePermissionsError } = useSimulateContract({
-		abi: muriAbi,
-		address: import.meta.env.VITE_MURI_ADDRESS as Address,
-		functionName: "revokeArtistPermissions",
-		args: [
-			creator,
-			BigInt(tokenId || 0),
-			revokeUpdateThumbnail,
-			revokeUpdateMetadata,
-			revokeChooseUris,
-			revokeAddRemoveUris,
-			revokeChooseThumbnail,
-			revokeUpdateDisplayMode,
-			revokeUpdateTemplate,
-		],
-		query: { enabled: !!creator && !!tokenId && hasPermissionsToRevoke },
-	});
-
-	const { error: simulateRevokeAllPermissionsError } = useSimulateContract({
-		abi: muriAbi,
-		address: import.meta.env.VITE_MURI_ADDRESS as Address,
-		functionName: "revokeAllArtistPermissions",
-		args: [creator, BigInt(tokenId || 0)],
-		query: { enabled: !!creator && !!tokenId },
-	});
+	const shouldContinueAfterPreflightError = (error: unknown) => {
+		setPreflightMessage(getPreflightMessage(error));
+		if (!isRpcTransportError(error)) {
+			setCurrentAction(null);
+			return false;
+		}
+		return true;
+	};
 
 	// Contract interaction functions
-	const updateMetadata = () => {
+	const updateMetadata = async () => {
 		if (!metadataJson) return;
 		setCurrentAction("updateMetadata");
+		setPreflightMessage(null);
+		try {
+			await simulateContract(wagmiConfig, {
+				abi: muriAbi,
+				address: muriAddress,
+				functionName: "updateMetadata",
+				args: [creator, tokenIdBigInt, metadataJson],
+			});
+		} catch (error) {
+			if (!shouldContinueAfterPreflightError(error)) return;
+		}
 		writeContract({
 			abi: muriAbi,
-			address: import.meta.env.VITE_MURI_ADDRESS as Address,
+			address: muriAddress,
 			functionName: "updateMetadata",
-			args: [creator, BigInt(tokenId), metadataJson],
+			args: [creator, tokenIdBigInt, metadataJson],
 		});
 	};
 
-	const updateThumbnail = () => {
+	const updateThumbnail = async () => {
 		if (!thumbnailFile || thumbChunks.length === 0) return;
 		setCurrentAction("updateThumbnail");
+		setPreflightMessage(null);
 		const thumbnail = {
 			kind: 0, // ON_CHAIN
 			onChain: {
@@ -450,13 +378,28 @@ export default function Update() {
 				selectedUriIndex: 0n,
 			},
 		};
+		try {
+			await simulateContract(wagmiConfig, {
+				abi: muriAbi,
+				address: muriAddress,
+				functionName: "updateThumbnail",
+				args: [
+					creator,
+					tokenIdBigInt,
+					thumbnail,
+					thumbChunks as readonly `0x${string}`[],
+				],
+			});
+		} catch (error) {
+			if (!shouldContinueAfterPreflightError(error)) return;
+		}
 		writeContract({
 			abi: muriAbi,
-			address: import.meta.env.VITE_MURI_ADDRESS as Address,
+			address: muriAddress,
 			functionName: "updateThumbnail",
 			args: [
 				creator,
-				BigInt(tokenId),
+				tokenIdBigInt,
 				thumbnail,
 				thumbChunks as readonly `0x${string}`[],
 			],
@@ -468,9 +411,9 @@ export default function Update() {
 		setCurrentAction("addArtworkUri");
 		writeContract({
 			abi: muriAbi,
-			address: import.meta.env.VITE_MURI_ADDRESS as Address,
+			address: muriAddress,
 			functionName: "addArtworkUris",
-			args: [creator, BigInt(tokenId), [newArtworkUri.trim()]],
+			args: [creator, tokenIdBigInt, [newArtworkUri.trim()]],
 		});
 		setNewArtworkUri("");
 	};
@@ -479,9 +422,9 @@ export default function Update() {
 		setCurrentAction("removeArtworkUri");
 		writeContract({
 			abi: muriAbi,
-			address: import.meta.env.VITE_MURI_ADDRESS as Address,
+			address: muriAddress,
 			functionName: "removeArtworkUris",
-			args: [creator, BigInt(tokenId), [BigInt(index)]],
+			args: [creator, tokenIdBigInt, [BigInt(index)]],
 		});
 	};
 
@@ -495,9 +438,10 @@ export default function Update() {
 		setThumbnailUriList(thumbnailUriList.filter((_, i) => i !== index));
 	};
 
-	const updateOffChainThumbnail = () => {
+	const updateOffChainThumbnail = async () => {
 		if (thumbnailUriList.length === 0) return;
 		setCurrentAction("updateOffChainThumbnail");
+		setPreflightMessage(null);
 		console.log("Updating off-chain thumbnail URIs:", thumbnailUriList);
 		console.log("Selected thumbnail index:", selectedThumbnailIndex);
 
@@ -515,21 +459,42 @@ export default function Update() {
 				),
 			},
 		};
+		try {
+			await simulateContract(wagmiConfig, {
+				abi: muriAbi,
+				address: muriAddress,
+				functionName: "updateThumbnail",
+				args: [creator, tokenIdBigInt, thumbnail, []],
+			});
+		} catch (error) {
+			if (!shouldContinueAfterPreflightError(error)) return;
+		}
 		writeContract({
 			abi: muriAbi,
-			address: import.meta.env.VITE_MURI_ADDRESS as Address,
+			address: muriAddress,
 			functionName: "updateThumbnail",
-			args: [creator, BigInt(tokenId), thumbnail, []],
+			args: [creator, tokenIdBigInt, thumbnail, []],
 		});
 	};
 
-	const updateDisplayMode = () => {
+	const updateDisplayMode = async () => {
 		setCurrentAction("updateDisplayMode");
+		setPreflightMessage(null);
+		try {
+			await simulateContract(wagmiConfig, {
+				abi: muriAbi,
+				address: muriAddress,
+				functionName: "setDisplayMode",
+				args: [creator, tokenIdBigInt, displayMode],
+			});
+		} catch (error) {
+			if (!shouldContinueAfterPreflightError(error)) return;
+		}
 		writeContract({
 			abi: muriAbi,
-			address: import.meta.env.VITE_MURI_ADDRESS as Address,
+			address: muriAddress,
 			functionName: "setDisplayMode",
-			args: [creator, BigInt(tokenId), displayMode],
+			args: [creator, tokenIdBigInt, displayMode],
 		});
 	};
 
@@ -537,35 +502,67 @@ export default function Update() {
 		setCurrentAction("updateArtworkSelection");
 		writeContract({
 			abi: muriAbi,
-			address: import.meta.env.VITE_MURI_ADDRESS as Address,
+			address: muriAddress,
 			functionName: "setSelectedUri",
-			args: [creator, BigInt(tokenId), BigInt(selectedArtworkIndex)],
+			args: [creator, tokenIdBigInt, BigInt(selectedArtworkIndex)],
 		});
 	};
 
 	// Note: Thumbnail selection is now handled within updateOffChainThumbnail
 
-	const updateHtmlTemplate = () => {
+	const updateHtmlTemplate = async () => {
 		if (!htmlTemplateFile || htmlTemplateChunks.length === 0) return;
 		setCurrentAction("updateHtmlTemplate");
+		setPreflightMessage(null);
+		try {
+			await simulateContract(wagmiConfig, {
+				abi: muriAbi,
+				address: muriAddress,
+				functionName: "updateHtmlTemplate",
+				args: [creator, tokenIdBigInt, htmlTemplateChunks, false],
+			});
+		} catch (error) {
+			if (!shouldContinueAfterPreflightError(error)) return;
+		}
 		writeContract({
 			abi: muriAbi,
-			address: import.meta.env.VITE_MURI_ADDRESS as Address,
+			address: muriAddress,
 			functionName: "updateHtmlTemplate",
-			args: [creator, BigInt(tokenId), htmlTemplateChunks, false], // false = not zipped for HTML
+			args: [creator, tokenIdBigInt, htmlTemplateChunks, false], // false = not zipped for HTML
 		});
 	};
 
-	const revokeSelectedPermissions = () => {
+	const revokeSelectedPermissions = async () => {
 		if (!hasPermissionsToRevoke) return;
 		setCurrentAction("revokeSelectedPermissions");
+		setPreflightMessage(null);
+		try {
+			await simulateContract(wagmiConfig, {
+				abi: muriAbi,
+				address: muriAddress,
+				functionName: "revokeArtistPermissions",
+				args: [
+					creator,
+					tokenIdBigInt,
+					revokeUpdateThumbnail,
+					revokeUpdateMetadata,
+					revokeChooseUris,
+					revokeAddRemoveUris,
+					revokeChooseThumbnail,
+					revokeUpdateDisplayMode,
+					revokeUpdateTemplate,
+				],
+			});
+		} catch (error) {
+			if (!shouldContinueAfterPreflightError(error)) return;
+		}
 		writeContract({
 			abi: muriAbi,
-			address: import.meta.env.VITE_MURI_ADDRESS as Address,
+			address: muriAddress,
 			functionName: "revokeArtistPermissions",
 			args: [
 				creator,
-				BigInt(tokenId),
+				tokenIdBigInt,
 				revokeUpdateThumbnail,
 				revokeUpdateMetadata,
 				revokeChooseUris,
@@ -577,51 +574,61 @@ export default function Update() {
 		});
 	};
 
-	const revokeAllPermissions = () => {
+	const revokeAllPermissions = async () => {
 		setCurrentAction("revokeAllPermissions");
+		setPreflightMessage(null);
+		try {
+			await simulateContract(wagmiConfig, {
+				abi: muriAbi,
+				address: muriAddress,
+				functionName: "revokeAllArtistPermissions",
+				args: [creator, tokenIdBigInt],
+			});
+		} catch (error) {
+			if (!shouldContinueAfterPreflightError(error)) return;
+		}
 		writeContract({
 			abi: muriAbi,
-			address: import.meta.env.VITE_MURI_ADDRESS as Address,
+			address: muriAddress,
 			functionName: "revokeAllArtistPermissions",
-			args: [creator, BigInt(tokenId)],
+			args: [creator, tokenIdBigInt],
 		});
 	};
 
 	// Direct form submission handlers
 	const onSubmitMetadata = (e: React.FormEvent) => {
 		e.preventDefault();
-		updateMetadata();
+		void updateMetadata();
 	};
 
 	const onSubmitThumbnail = (e: React.FormEvent) => {
 		e.preventDefault();
-		updateThumbnail();
+		void updateThumbnail();
 	};
 
 	const onSubmitHtmlTemplate = (e: React.FormEvent) => {
 		e.preventDefault();
-		updateHtmlTemplate();
+		void updateHtmlTemplate();
 	};
 
 	const onSubmitRevokePermissions = (e: React.FormEvent) => {
 		e.preventDefault();
-		revokeSelectedPermissions();
+		void revokeSelectedPermissions();
 	};
 
 	const onSubmitRevokeAllPermissions = (e: React.FormEvent) => {
 		e.preventDefault();
-		revokeAllPermissions();
+		void revokeAllPermissions();
 	};
 
 	// Effect to refetch data after successful transactions
 	useEffect(() => {
-		if (isSuccess) {
-			refetchTokenData();
-			refetchArtworkUris();
-			refetchThumbnailUris();
+		if (isSuccess && hash && refetchedSuccessHash.current !== hash) {
+			refetchedSuccessHash.current = hash;
+			refetchTokenReads();
 			setCurrentAction(null); // Clear current action on success
 		}
-	}, [isSuccess, refetchTokenData, refetchArtworkUris, refetchThumbnailUris]);
+	}, [hash, isSuccess, refetchTokenReads]);
 
 	// Clear current action on error
 	useEffect(() => {
@@ -846,43 +853,6 @@ export default function Update() {
 								</div>
 							)) as React.ReactNode
 						}
-
-						{/* Contract Connection Status */}
-						<div
-							className={`mt-4 p-3 ${
-								isDarkMode ? "bg-zinc-900" : "bg-zinc-50 border border-zinc-300"
-							} rounded text-xs`}
-						>
-							<div className="flex justify-between items-center">
-								<span
-									className={`${
-										isDarkMode ? "text-zinc-400" : "text-zinc-600"
-									}`}
-								>
-									Contract Status:
-								</span>
-								<span
-									className={
-										contractError
-											? "text-red-400"
-											: htmlTemplate
-											? "text-green-400"
-											: "text-yellow-400"
-									}
-								>
-									{contractError
-										? "Connection Failed"
-										: htmlTemplate
-										? "Connected"
-										: "Checking..."}
-								</span>
-							</div>
-							{contractError && (
-								<p className="text-red-400 mt-2 text-xs">
-									Error: {contractError.message}
-								</p>
-							)}
-						</div>
 					</div>
 
 					{/* All Update Sections - Only show when token data is loaded */}
@@ -993,17 +963,6 @@ export default function Update() {
 											</div>
 
 											<div className="flex justify-end mt-6">
-												{simulateMetadataError && (
-													<div className="mb-4 p-3 bg-orange-500 bg-opacity-10 border border-orange-500 border-opacity-30 rounded">
-														<p className="text-sm text-orange-300 font-medium">
-															Update will fail:
-														</p>
-														<p className="text-xs text-orange-200 mt-1">
-															{simulateMetadataError.message}
-														</p>
-													</div>
-												)}
-
 												<button
 													type="submit"
 													className="btn-primary"
@@ -1011,11 +970,11 @@ export default function Update() {
 														!metadataJson ||
 														isPending ||
 														isConfirming ||
-														!hasArtistUpdateMetaPermission ||
-														!!simulateMetadataError
+														currentAction !== null ||
+														!hasArtistUpdateMetaPermission
 													}
 												>
-													{(isPending || isConfirming) && currentAction === "updateMetadata"
+													{currentAction === "updateMetadata"
 														? "Updating..."
 														: "Update Metadata"}
 												</button>
@@ -1048,26 +1007,14 @@ export default function Update() {
 													<option value={1}>Smart HTML</option>
 												</select>
 											</div>
-											{simulateDisplayError && (
-												<div className="mb-4 p-3 bg-orange-500 bg-opacity-10 border border-orange-500 border-opacity-30 rounded">
-													<p className="text-sm text-orange-300 font-medium">
-														Update will fail:
-													</p>
-													<p className="text-xs text-orange-200 mt-1">
-														{simulateDisplayError.message}
-													</p>
-												</div>
-											)}
 
 											<button
 												type="button"
-												onClick={updateDisplayMode}
+												onClick={() => void updateDisplayMode()}
 												className="btn-secondary"
-												disabled={
-													!!simulateDisplayError || isPending || isConfirming
-												}
+												disabled={isPending || isConfirming || currentAction !== null}
 											>
-												{(isPending || isConfirming) && currentAction === "updateDisplayMode"
+												{currentAction === "updateDisplayMode"
 													? "Updating..."
 													: "Update Display Mode"}
 											</button>
@@ -1164,9 +1111,9 @@ export default function Update() {
 														type="button"
 														onClick={updateArtworkSelection}
 														className="btn-secondary mt-2"
-														disabled={isPending || isConfirming}
+														disabled={isPending || isConfirming || currentAction !== null}
 													>
-														{(isPending || isConfirming) && currentAction === "updateArtworkSelection"
+														{currentAction === "updateArtworkSelection"
 															? "Updating..."
 															: "Update Selection"}
 													</button>
@@ -1278,10 +1225,11 @@ export default function Update() {
 														!thumbnailFile ||
 														thumbChunks.length === 0 ||
 														isPending ||
-														isConfirming
+														isConfirming ||
+														currentAction !== null
 													}
 												>
-													{(isPending || isConfirming) && currentAction === "updateThumbnail"
+													{currentAction === "updateThumbnail"
 														? "Updating..."
 														: "Update Thumbnail"}
 												</button>
@@ -1374,29 +1322,18 @@ export default function Update() {
 													</div>
 												)}
 
-												{simulateThumbnailError && (
-													<div className="mb-4 p-3 bg-orange-500 bg-opacity-10 border border-orange-500 border-opacity-30 rounded">
-														<p className="text-sm text-orange-300 font-medium">
-															Update will fail:
-														</p>
-														<p className="text-xs text-orange-200 mt-1">
-															{simulateThumbnailError.message}
-														</p>
-													</div>
-												)}
-
 												<button
 													type="button"
-													onClick={updateOffChainThumbnail}
+													onClick={() => void updateOffChainThumbnail()}
 													className="btn-primary w-full"
 													disabled={
 														thumbnailUriList.length === 0 ||
 														isPending ||
 														isConfirming ||
-														!!simulateThumbnailError
+														currentAction !== null
 													}
 												>
-													{(isPending || isConfirming) && currentAction === "updateOffChainThumbnail"
+													{currentAction === "updateOffChainThumbnail"
 														? "Updating..."
 														: "Update Thumbnail URIs"}
 												</button>
@@ -1417,17 +1354,6 @@ export default function Update() {
 										</h3>
 
 										<form onSubmit={onSubmitHtmlTemplate}>
-											{simulateHtmlTemplateError && (
-												<div className="mb-4 p-3 bg-orange-500 bg-opacity-10 border border-orange-500 border-opacity-30 rounded">
-													<p className="text-sm text-orange-300 font-medium">
-														Update will fail:
-													</p>
-													<p className="text-xs text-orange-200 mt-1">
-														{simulateHtmlTemplateError.message}
-													</p>
-												</div>
-											)}
-
 											<p
 												className={`${
 													isDarkMode ? "text-zinc-400" : "text-zinc-600"
@@ -1577,10 +1503,10 @@ export default function Update() {
 													htmlTemplateChunks.length === 0 ||
 													isPending ||
 													isConfirming ||
-													!!simulateHtmlTemplateError
+													currentAction !== null
 												}
 											>
-												{(isPending || isConfirming) && currentAction === "updateHtmlTemplate"
+												{currentAction === "updateHtmlTemplate"
 													? "Updating..."
 													: "Update HTML Template"}
 											</button>
@@ -1826,17 +1752,6 @@ export default function Update() {
 													</label>
 												</div>
 
-												{simulateRevokePermissionsError && (
-													<div className="p-3 bg-orange-500 bg-opacity-10 border border-orange-500 border-opacity-30 rounded">
-														<p className="text-sm text-orange-300 font-medium">
-															Revocation will fail:
-														</p>
-														<p className="text-xs text-orange-200 mt-1">
-															{simulateRevokePermissionsError.message}
-														</p>
-													</div>
-												)}
-
 												<button
 													type="submit"
 													className="btn-secondary w-full"
@@ -1844,10 +1759,10 @@ export default function Update() {
 														!hasPermissionsToRevoke ||
 														isPending ||
 														isConfirming ||
-														!!simulateRevokePermissionsError
+														currentAction !== null
 													}
 												>
-													{(isPending || isConfirming) && currentAction === "revokeSelectedPermissions"
+													{currentAction === "revokeSelectedPermissions"
 														? "Revoking..."
 														: "Revoke Selected Permissions"}
 												</button>
@@ -1866,27 +1781,16 @@ export default function Update() {
 													immutable and eliminates all artist-related points of
 													failure, maximizing trustlessness.
 												</p>
-												{simulateRevokeAllPermissionsError && (
-													<div className="p-3 bg-orange-500 bg-opacity-10 border border-orange-500 border-opacity-30 rounded">
-														<p className="text-sm text-orange-300 font-medium">
-															Revocation will fail:
-														</p>
-														<p className="text-xs text-orange-200 mt-1">
-															{simulateRevokeAllPermissionsError.message}
-														</p>
-													</div>
-												)}
-
 												<button
 													type="submit"
 													className="btn-danger w-full"
 													disabled={
 														isPending ||
 														isConfirming ||
-														!!simulateRevokeAllPermissionsError
+														currentAction !== null
 													}
 												>
-													{(isPending || isConfirming) && currentAction === "revokeAllPermissions"
+													{currentAction === "revokeAllPermissions"
 														? "Revoking..."
 														: "Revoke All Artist Permissions"}
 												</button>
@@ -1899,6 +1803,12 @@ export default function Update() {
 					}
 
 					{/* Status Messages */}
+					{preflightMessage && (
+						<div className="card bg-orange-500 bg-opacity-10 border-orange-500 border-opacity-30">
+							<p className="text-sm text-orange-200">{preflightMessage}</p>
+						</div>
+					)}
+
 					{hash && !isSuccess && (
 						<div className="text-center text-sm ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}">
 							Transaction submitted. Waiting for confirmation...
@@ -1993,11 +1903,11 @@ export default function Update() {
 										<li>• Network connection issue</li>
 										<li>• Wrong collection address</li>
 									</ul>
-								</div>
-								<button
-									onClick={() => refetchTokenData()}
-									className="btn-ghost text-red-300 hover:text-red-200 mt-4"
-								>
+									</div>
+									<button
+										onClick={() => void refetchTokenReads()}
+										className="btn-ghost text-red-300 hover:text-red-200 mt-4"
+									>
 									Retry Loading
 								</button>
 							</div>

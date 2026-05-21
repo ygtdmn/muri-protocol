@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { useAccount, useChainId } from "wagmi";
+import { useEffect, useMemo, useState } from "react";
+import { useAccount, useChainId, useReadContracts } from "wagmi";
 import { useNavigate } from "react-router-dom";
 import { readContract } from "wagmi/actions";
 import type { Address } from "viem";
@@ -10,7 +10,6 @@ import { muriAbi } from "../abis/muri-abi";
 import RegisterExtension from "../components/RegisterExtension";
 import RegisterMURI from "../components/RegisterMURI";
 import { useManifoldAuth } from "../hooks/useManifoldAuth";
-import { useReadContract } from "wagmi";
 import { Palette, Heart, RefreshCw, ArrowLeft, Search } from "lucide-react";
 import Header from "../components/Header";
 import ConnectButtonPrimary from "../components/ConnectButtonPrimary";
@@ -20,6 +19,7 @@ import PageBackground from "../components/PageBackground";
 import { CollectionCard } from "../components/features/CollectionCard";
 import { Alert } from "../components/ui/Alert";
 import { EmptyState } from "../components/ui/EmptyState";
+import { readResult } from "../utils/readResults";
 
 type CreatorCoreInfo = {
 	address: Address;
@@ -45,38 +45,55 @@ export default function Collections() {
 	const [authError, setAuthError] = useState<string | null>(null);
 	const { isDarkMode, toggleTheme } = useTheme();
 
-	// Check if extension is registered with Manifold
 	const coreAbi =
 		resolved?.type === "ERC721"
 			? ierc721CreatorCoreAbi
 			: ierc1155CreatorCoreAbi;
-	const { data: extensions, refetch: refetchExtensions } = useReadContract({
-		abi: coreAbi,
-		address: resolved?.address,
-		functionName: "getExtensions",
-		args: [],
-		query: { enabled: !!resolved?.address && resolved?.type !== "Unknown" },
-	});
-
+	const muriAddress = import.meta.env.VITE_MURI_ADDRESS as Address;
 	const muriExtensionAddress = import.meta.env
 		.VITE_MURI_EXTENSION_ADDRESS as Address;
+	const selectedCreator =
+		resolved?.address && resolved.type !== "Unknown" ? resolved.address : undefined;
+	const registrationContracts = useMemo(() => {
+		if (!selectedCreator) return undefined;
+
+		return [
+			{
+				abi: coreAbi,
+				address: selectedCreator,
+				functionName: "getExtensions",
+				args: [],
+			},
+			{
+				abi: muriAbi,
+				address: muriAddress,
+				functionName: "isContractOperator",
+				args: [selectedCreator, muriExtensionAddress],
+			},
+		] as const;
+	}, [coreAbi, muriAddress, muriExtensionAddress, selectedCreator]);
+
+	const { data: registrationStatus, refetch: refetchRegistrationStatus } =
+		useReadContracts({
+			allowFailure: true,
+			contracts: registrationContracts,
+			query: {
+				enabled: !!registrationContracts,
+				staleTime: 30_000,
+			},
+		});
+
+	const extensions = readResult<readonly Address[]>(registrationStatus?.[0]);
 	const isExtensionRegistered =
 		extensions && Array.isArray(extensions)
-			? extensions.includes(muriExtensionAddress)
+			? extensions.some(
+					(extension) =>
+						extension.toLowerCase() === muriExtensionAddress.toLowerCase()
+			  )
 			: false;
 
-	// Check if contract is registered with MURI Protocol
-	const { data: isContractRegistered, refetch: refetchContractRegistration } = useReadContract({
-		abi: muriAbi,
-		address: import.meta.env.VITE_MURI_ADDRESS as Address,
-		functionName: "isContractOperator",
-		args: [
-			resolved?.address ||
-				("0x0000000000000000000000000000000000000000" as Address),
-			muriExtensionAddress,
-		],
-		query: { enabled: !!resolved?.address },
-	});
+	const isContractRegistered =
+		readResult<boolean>(registrationStatus?.[1]) ?? false;
 
 	const canProceed = Boolean(
 		resolved &&
@@ -712,15 +729,17 @@ export default function Collections() {
 
 										{resolved.type !== "Unknown" && (
 											<div className="space-y-4">
-												<RegisterExtension
-													creator={resolved.address}
-													type={resolved.type}
-													onSuccess={refetchExtensions}
-												/>
-												<RegisterMURI 
-													creator={resolved.address}
-													onSuccess={refetchContractRegistration}
-												/>
+													<RegisterExtension
+														creator={resolved.address}
+														type={resolved.type}
+														isRegistered={isExtensionRegistered}
+														onSuccess={refetchRegistrationStatus}
+													/>
+													<RegisterMURI
+														creator={resolved.address}
+														isRegistered={isContractRegistered}
+														onSuccess={refetchRegistrationStatus}
+													/>
 											</div>
 										)}
 

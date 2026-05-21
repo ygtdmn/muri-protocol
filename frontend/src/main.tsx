@@ -8,7 +8,17 @@ import { WagmiProvider } from "wagmi";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { wagmiConfig, chains } from "./lib/wagmi";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+	defaultOptions: {
+		queries: {
+			staleTime: 30_000,
+			gcTime: 5 * 60_000,
+			retry: false,
+			refetchOnWindowFocus: false,
+			refetchOnReconnect: false,
+		},
+	},
+});
 
 // Dynamic RainbowKit theme to support light/dark modes
 const customTheme = {

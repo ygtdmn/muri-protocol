@@ -1,25 +1,25 @@
-import { useEffect } from "react";
-import {
-	useWriteContract,
-	useWaitForTransactionReceipt,
-	useReadContract,
-	useSimulateContract,
-} from "wagmi";
+import { useEffect, useRef, useState } from "react";
+import { useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import { simulateContract } from "wagmi/actions";
 import type { Address } from "viem";
 import { ierc721CreatorCoreAbi } from "../abis/IERC721CreatorCore-abi";
 import { ierc1155CreatorCoreAbi } from "../abis/IERC1155CreatorCore-abi";
+import { wagmiConfig } from "../lib/wagmi";
 import { useTheme } from "../hooks/useTheme";
 import { RefreshCw } from "lucide-react";
+import { getPreflightMessage, isRpcTransportError } from "../utils/rpcErrors";
 
 interface RegisterExtensionProps {
 	creator: Address;
 	type: "ERC721" | "ERC1155";
+	isRegistered: boolean;
 	onSuccess?: () => void;
 }
 
 export default function RegisterExtension({
 	creator,
 	type,
+	isRegistered,
 	onSuccess,
 }: RegisterExtensionProps) {
 	const { isDarkMode } = useTheme();
@@ -34,31 +34,29 @@ export default function RegisterExtension({
 	const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
 		hash,
 	});
+	const [isPreflighting, setIsPreflighting] = useState(false);
+	const [preflightMessage, setPreflightMessage] = useState<string | null>(null);
+	const reportedSuccessHash = useRef<`0x${string}` | undefined>(undefined);
 
-	// Check if extension is already registered
-	const { data: extensions } = useReadContract({
-		abi: coreAbi,
-		address: creator,
-		functionName: "getExtensions",
-		args: [],
-		query: { enabled: !!creator },
-	});
+	const handleRegister = async () => {
+		setPreflightMessage(null);
+		setIsPreflighting(true);
+		try {
+			await simulateContract(wagmiConfig, {
+				abi: coreAbi,
+				address: creator,
+				functionName: "registerExtension",
+				args: [muriExtensionAddress, baseURI],
+			});
+		} catch (error) {
+			setPreflightMessage(getPreflightMessage(error));
+			if (!isRpcTransportError(error)) {
+				return;
+			}
+		} finally {
+			setIsPreflighting(false);
+		}
 
-	const isExtensionRegistered =
-		extensions && Array.isArray(extensions)
-			? extensions.includes(muriExtensionAddress)
-			: false;
-
-	// Simulate the registration to catch errors
-	const { error: simulateError } = useSimulateContract({
-		abi: coreAbi,
-		address: creator,
-		functionName: "registerExtension",
-		args: [muriExtensionAddress, baseURI],
-		query: { enabled: !!creator && !isExtensionRegistered },
-	});
-
-	const handleRegister = () => {
 		writeContract({
 			abi: coreAbi,
 			address: creator,
@@ -69,10 +67,15 @@ export default function RegisterExtension({
 
 	// Call onSuccess callback when transaction is successful
 	useEffect(() => {
-		if (isSuccess && onSuccess) {
-			onSuccess();
+		if (isSuccess && hash && reportedSuccessHash.current !== hash) {
+			reportedSuccessHash.current = hash;
+			onSuccess?.();
 		}
-	}, [isSuccess, onSuccess]);
+	}, [hash, isSuccess, onSuccess]);
+
+	useEffect(() => {
+		setPreflightMessage(null);
+	}, [creator, type]);
 
 	// Show success message for recent transaction
 	if (isSuccess) {
@@ -100,7 +103,7 @@ export default function RegisterExtension({
 	}
 
 	// Show already registered status
-	if (isExtensionRegistered) {
+	if (isRegistered) {
 		return (
 			<div
 				className={`
@@ -155,37 +158,37 @@ export default function RegisterExtension({
 			</div>
 
 			<button
-				onClick={handleRegister}
+				onClick={() => void handleRegister()}
 				className={`
 					w-full px-6 py-3 rounded-lg font-semibold
 					transition-all duration-200
 					${
-						isPending || isConfirming || !creator || isExtensionRegistered || !!simulateError
+						isPending || isConfirming || isPreflighting || !creator || isRegistered
 							? "opacity-50 cursor-not-allowed bg-surface-hover-light dark:bg-surface-hover-dark text-text-tertiary-light dark:text-text-tertiary-dark"
 							: "bg-primary hover:bg-primary-hover dark:bg-primary-dark dark:hover:bg-primary-dark-hover text-white shadow-soft hover:shadow-medium"
 					}
 				`}
 				disabled={
-					isPending ||
-					isConfirming ||
-					!creator ||
-					isExtensionRegistered ||
-					!!simulateError
+					isPending || isConfirming || isPreflighting || !creator || isRegistered
 				}
 			>
-				{isPending || isConfirming ? (
+				{isPending || isConfirming || isPreflighting ? (
 					<span className="flex items-center justify-center gap-2">
 						<RefreshCw className="w-4 h-4 animate-spin" />
-						{isPending ? "Registering..." : "Confirming..."}
+						{isPreflighting
+							? "Checking..."
+							: isPending
+							? "Registering..."
+							: "Confirming..."}
 					</span>
-				) : isExtensionRegistered ? (
+				) : isRegistered ? (
 					"✓ Already Registered"
 				) : (
 					"Register Extension"
 				)}
 			</button>
 
-			{simulateError && (
+			{preflightMessage && (
 				<div
 					className={`
 						mt-3 p-3 rounded-lg
@@ -202,7 +205,7 @@ export default function RegisterExtension({
 							${isDarkMode ? "text-warning-dark" : "text-warning"}
 						`}
 					>
-						Transaction will fail: {simulateError.message}
+						{preflightMessage}
 					</p>
 				</div>
 			)}
