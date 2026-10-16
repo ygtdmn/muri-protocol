@@ -1,0 +1,3 @@
+# Templates are stored on chain byte for byte: never convert their line endings
+html-template/minified.html -text
+html-template/deployed-constructor.html -text

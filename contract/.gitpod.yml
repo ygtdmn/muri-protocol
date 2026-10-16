@@ -1,4 +1,4 @@
-image: "gitpod/workspace-bun"
+image: "gitpod/workspace-full"
 
 tasks:
   - name: "Install dependencies"
@@ -6,7 +6,7 @@ tasks:
       curl -L https://foundry.paradigm.xyz | bash
       source ~/.bashrc
       foundryup
-    init: "bun install"
+    init: "pnpm install --frozen-lockfile"
 
 vscode:
   extensions:

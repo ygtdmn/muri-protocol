@@ -1,67 +1,162 @@
-/* Import friendly fonts */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* Dark mode follows the .dark class index.html puts on <html>. */
+@custom-variant dark (&:where(.dark, .dark *));
 
+@theme {
+	--font-sans: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+	--font-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+
+	--text-micro: 10px;
+	--text-micro--line-height: 1.3;
+	--text-micro--letter-spacing: 0.08em;
+
+	/* Channels live in --background etc. below so light and dark swap in one place. */
+	--color-background: rgb(var(--background));
+	--color-surface: rgb(var(--surface));
+	--color-foreground: rgb(var(--foreground));
+	--color-muted: rgb(var(--muted));
+	--color-faint: rgb(var(--faint));
+	--color-line: rgb(var(--line));
+	--color-line-strong: rgb(var(--line-strong));
+	--color-signal: rgb(var(--signal));
+	--color-up: rgb(var(--up));
+	--color-caution: rgb(var(--caution));
+
+	--ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+	--animate-fade-in: fade-in 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+	--animate-bar: bar 0.9s ease-in-out infinite;
+
+	@keyframes fade-in {
+		0% {
+			opacity: 0;
+			transform: translateY(4px);
+		}
+		100% {
+			opacity: 1;
+			transform: translateY(0);
+		}
+	}
+
+	@keyframes bar {
+		0%,
+		100% {
+			transform: scaleY(0.35);
+		}
+		50% {
+			transform: scaleY(1);
+		}
+	}
+}
+
+/* Tailwind 4 defaults borders to currentColor; keep v3's quiet default, in our line color. */
 @layer base {
-	* {
-		box-sizing: border-box;
+	*,
+	::after,
+	::before,
+	::backdrop,
+	::file-selector-button {
+		border-color: var(--color-line);
 	}
-	
-	html,
-	body,
-	#root {
-		height: 100%;
+}
+
+/* Mono uppercase label, the system's small-type voice. */
+@utility micro {
+	@apply font-mono text-micro uppercase tracking-[0.16em];
+}
+
+@utility link {
+	@apply underline decoration-1 underline-offset-[3px] transition-opacity hover:opacity-60;
+}
+
+@utility field {
+	@apply w-full bg-background border border-line-strong px-3 h-11 text-[15px] text-foreground placeholder:text-faint outline-hidden transition-colors focus:border-foreground disabled:opacity-50;
+}
+
+/* Same layer as `field`, so the element+class selector wins and textareas size by rows. */
+@layer utilities {
+	textarea.field {
+		@apply h-auto py-2.5 leading-relaxed resize-y;
+	}
+}
+
+/* Palette shared with panorama.garden: warm paper / near-black, flat surfaces. */
+@layer base {
+	:root {
+		--background: 247 246 243;
+		--surface: 255 255 255;
+		--foreground: 17 17 17;
+		--muted: 120 119 116;
+		--faint: 184 182 177;
+		--line: 234 234 234;
+		--line-strong: 217 215 210;
+		--signal: 159 47 45;
+		--up: 31 122 77;
+		--caution: 138 98 20;
+		color-scheme: light;
 	}
 
-	/* Reserve scrollbar space to prevent horizontal layout shift when modals open */
+	.dark {
+		--background: 10 10 10;
+		--surface: 20 20 20;
+		--foreground: 237 237 237;
+		--muted: 176 171 164;
+		--faint: 122 117 111;
+		--line: 31 31 31;
+		--line-strong: 46 46 46;
+		--signal: 194 62 59;
+		--up: 82 183 136;
+		--caution: 214 170 82;
+		color-scheme: dark;
+	}
+
 	html {
-		scrollbar-gutter: stable both-edges;
+		scrollbar-gutter: stable;
+		-webkit-text-size-adjust: 100%;
 	}
-	
+
 	body {
-		@apply font-sans antialiased;
-		line-height: 1.6;
+		@apply bg-background text-foreground font-sans antialiased;
+		font-size: 15px;
+		line-height: 1.55;
 	}
-	
-	/* Better focus states */
+
+	::selection {
+		background: rgb(var(--foreground));
+		color: rgb(var(--background));
+	}
+
 	:focus-visible {
-		@apply outline-none ring-2 ring-primary ring-offset-2;
+		outline: 1px solid rgb(var(--foreground));
+		outline-offset: 2px;
+	}
+
+	input[type="number"]::-webkit-inner-spin-button,
+	input[type="number"]::-webkit-outer-spin-button {
+		-webkit-appearance: none;
+		margin: 0;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		*,
+		*::before,
+		*::after {
+			animation-duration: 0.01ms !important;
+			transition-duration: 0.01ms !important;
+		}
 	}
 }
 
-@layer components {
-	/* Smooth page transitions */
-	.page-transition {
-		@apply animate-fade-in;
-	}
-	
-	/* Custom scrollbar */
-	.custom-scrollbar::-webkit-scrollbar {
-		width: 8px;
-		height: 8px;
-	}
-	
-	.custom-scrollbar::-webkit-scrollbar-track {
-		@apply bg-surface-light dark:bg-surface-dark;
-	}
-	
-	.custom-scrollbar::-webkit-scrollbar-thumb {
-		@apply bg-border-light dark:bg-border-dark rounded-full;
-	}
-	
-	.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-		@apply bg-border-hover-light dark:bg-border-hover-dark;
-	}
+/* Travelling dot on TokenAnatomy connectors. */
+@keyframes flow-x {
+	0% { left: 0; opacity: 0; }
+	15%, 85% { opacity: 1; }
+	100% { left: calc(100% - 6px); opacity: 0; }
 }
 
-/* RainbowKit modal customization */
-[data-rk] [role="dialog"] {
-	border-radius: 0.5rem !important;
-}
-
-[data-rk] button {
-	border-radius: 0.375rem !important;
+@keyframes flow-y {
+	0% { top: 0; opacity: 0; }
+	15%, 85% { opacity: 1; }
+	100% { top: calc(100% - 6px); opacity: 0; }
 }

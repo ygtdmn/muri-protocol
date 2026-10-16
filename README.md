@@ -15,7 +15,8 @@ Store multiple URIs per token. Manage them with granular permissions. Keep thing
 - Automatic URI switching when primary fails
 - On-chain metadata and file hashes
 - On-chain thumbnails (optional)
-- x402 integration for decentralized storage uploads
+- Optional pay-per-upload storage over x402 (USDC on Base): Arweave via ar.io Turbo, IPFS via Pinata. Anything else can be paid in via a Relay swap or bridge
+- No protocol fees: MURI takes nothing. Storage payments go straight to the providers, and you can always paste links you host yourself
 - Manifold extension for ERC721/ERC1155 contracts
 
 ## Contracts
@@ -50,17 +51,50 @@ Or use the Manifold extension if you're already on ERC721/ERC1155.
 
 ## Development
 
-```bash
-# Contracts
-cd contract && pnpm install && pnpm run build
+Prerequisites: Node 22+, pnpm 10, and [Foundry](https://book.getfoundry.sh/getting-started/installation) for the contracts.
 
-# Frontend
-cd frontend && pnpm install && pnpm run dev
+### Contracts
+
+```bash
+cd contract
+pnpm install   # Solidity dependencies (Manifold, OpenZeppelin, Solady) resolve from node_modules
+forge build
+forge test
 ```
 
+The Smart HTML page lives in `contract/html-template/template.html`. After editing it, run `node html-template/minify-template.js` and push the result to each network as the protocol owner:
+
+```bash
+forge script script/UpdateHTMLTemplate.s.sol --rpc-url <network> --account <keystore> --sender <owner> --broadcast
+```
+
+The script checks the signer is the owner, skips networks that are already up to date, and reads the template back afterwards. On a network that has activated Glamsterdam, Foundry's local simulation underestimates storage gas. Send the transaction from the script's dry run with `cast send` and an explicit `--gas-limit` there.
+
+### Frontend
+
+```bash
+cd frontend
+cp .env.example .env   # fill in the values below
+pnpm install
+pnpm dev
+```
+
+| Variable | Needed for |
+|----------|-----------|
+| `VITE_MURI_ADDRESS`, `VITE_MURI_EXTENSION_ADDRESS` | Everything (prefilled with the deployed addresses) |
+| `VITE_WALLETCONNECT_PROJECT_ID` | The WalletConnect option (hidden without it) |
+| `VITE_MANIFOLD_CLIENT_ID`, `VITE_MANIFOLD_APP_NAME` | Listing a creator's Manifold collections (pasting an address works without) |
+| `RELAY_API_KEY` | Relay swaps and bridges. Server-side only, never `VITE_`-prefixed |
+
+`pnpm build` type-checks the app, the Vercel function in `api/` and the Vite config, then writes `dist/` with one HTML file per page so link previews get the right title and image.
+
+### Deploying
+
+The frontend runs on Vercel with `frontend/` as the project root. `vercel.json` serves the pages by clean URL and routes `/api/relay/*` to `api/relay.ts`, which adds `RELAY_API_KEY` to Relay requests. Set the variables above in the Vercel project, `RELAY_API_KEY` included.
+
 **Stack:**
-- Contracts: Solidity 0.8.30+, Foundry, Solady
-- Frontend: React 19, TypeScript, Vite, Tailwind, Wagmi
+- Contracts: Solidity 0.8.30, Foundry, Solady
+- Frontend: React 19, TypeScript, Vite, Tailwind 4, wagmi 3 with our own connect modal
 
 ## Contributing
 

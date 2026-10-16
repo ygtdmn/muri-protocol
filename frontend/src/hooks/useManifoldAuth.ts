@@ -1,119 +1,80 @@
 import { useState, useEffect } from "react";
-import { useAccount, useSignMessage } from "wagmi";
+import { useConnection, useSignMessage } from "wagmi";
 
 const CLIENT_ID = import.meta.env.VITE_MANIFOLD_CLIENT_ID || "";
 const APP_NAME = import.meta.env.VITE_MANIFOLD_APP_NAME || "";
 
-// Cookie management helpers
-const COOKIE_NAMES = {
-	ACCESS_TOKEN: "manifold_access_token",
-	SESSION_TOKEN: "manifold_session_token",
-	EXPIRES_AT: "manifold_expires_at",
-	WALLET_ADDRESS: "manifold_wallet_address",
-	CHAIN_ID: "manifold_chain_id",
-};
+// The Manifold tokens live in sessionStorage: readable only by this tab's scripts, never sent along
+// with requests the way cookies are, and gone when the tab closes.
+const STORAGE_KEY = "muri-manifold-auth";
+const LIFETIME_MS = 60 * 60 * 1000;
 
-function setCookie(name: string, value: string, hoursToExpire: number = 1) {
-	const expires = new Date();
-	expires.setTime(expires.getTime() + hoursToExpire * 60 * 60 * 1000);
-	const isSecure = location.protocol === 'https:';
-	const secureFlag = isSecure ? '; Secure' : '';
-	document.cookie = `${name}=${value}; expires=${expires.toUTCString()}; path=/; SameSite=Strict${secureFlag}`;
+interface StoredAuth {
+	accessToken: string;
+	sessionToken: string;
+	address: string;
+	expiresAt: number;
 }
 
-function getCookie(name: string): string | null {
-	const nameEQ = name + "=";
-	const ca = document.cookie.split(";");
-	for (let i = 0; i < ca.length; i++) {
-		let c = ca[i];
-		while (c.charAt(0) === " ") c = c.substring(1, c.length);
-		if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length, c.length);
+function readAuth(): StoredAuth | null {
+	try {
+		const raw = sessionStorage.getItem(STORAGE_KEY);
+		if (!raw) return null;
+		const auth = JSON.parse(raw) as StoredAuth;
+		return auth.expiresAt > Date.now() ? auth : null;
+	} catch {
+		return null;
 	}
-	return null;
 }
 
-function deleteCookie(name: string) {
+function writeAuth(auth: StoredAuth | null) {
+	try {
+		if (auth) sessionStorage.setItem(STORAGE_KEY, JSON.stringify(auth));
+		else sessionStorage.removeItem(STORAGE_KEY);
+	} catch {
+		// Storage blocked: the session just won't survive a reload.
+	}
+}
+
+// Earlier versions kept these in cookies, sent with every request to this site. Clear them out.
+for (const name of ["manifold_access_token", "manifold_session_token", "manifold_expires_at", "manifold_wallet_address", "manifold_chain_id"]) {
 	document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
 }
 
-function isAuthExpired(): boolean {
-	const expiresAt = getCookie(COOKIE_NAMES.EXPIRES_AT);
-	if (!expiresAt) return true;
-	return Date.now() > parseInt(expiresAt);
-}
-
-function clearAuthCookies() {
-	deleteCookie(COOKIE_NAMES.ACCESS_TOKEN);
-	deleteCookie(COOKIE_NAMES.SESSION_TOKEN);
-	deleteCookie(COOKIE_NAMES.EXPIRES_AT);
-	deleteCookie(COOKIE_NAMES.WALLET_ADDRESS);
-	deleteCookie(COOKIE_NAMES.CHAIN_ID);
-}
-
 export function useManifoldAuth() {
-	const { address, chainId } = useAccount();
-	const { signMessageAsync } = useSignMessage();
-	const [token, setToken] = useState("");
-	const [session, setSession] = useState("");
+	const { address, chainId } = useConnection();
+	const { mutateAsync: signMessageAsync } = useSignMessage();
+	const [auth, setAuth] = useState<StoredAuth | null>(readAuth);
 	const [isAuthenticating, setIsAuthenticating] = useState(false);
-	const [authenticatedAddress, setAuthenticatedAddress] = useState<string | null>(null);
 
-	// Initialize from cookies on mount and when address or chainId changes
+	// A session belongs to one wallet; switching or disconnecting ends it.
 	useEffect(() => {
-		const cachedAddress = getCookie(COOKIE_NAMES.WALLET_ADDRESS);
-		const cachedChainId = getCookie(COOKIE_NAMES.CHAIN_ID);
-		
-		// If wallet address changed, clear old authentication
-		if (cachedAddress && address && cachedAddress.toLowerCase() !== address.toLowerCase()) {
-			clearAuthCookies();
-			setToken("");
-			setSession("");
-			setAuthenticatedAddress(null);
+		const current = readAuth();
+		if (!address || (current && current.address.toLowerCase() !== address.toLowerCase())) {
+			writeAuth(null);
+			setAuth(null);
 			return;
 		}
-		
-		// If no address connected, clear everything
-		if (!address) {
-			clearAuthCookies();
-			setToken("");
-			setSession("");
-			setAuthenticatedAddress(null);
-			return;
-		}
-		
-		// If network changed, update the cached chain ID but keep tokens
-		if (cachedChainId && chainId && cachedChainId !== chainId.toString()) {
-			setCookie(COOKIE_NAMES.CHAIN_ID, chainId.toString(), 1);
-		}
-		
-		// Check if authentication expired
-		if (isAuthExpired()) {
-			clearAuthCookies();
-			setToken("");
-			setSession("");
-			setAuthenticatedAddress(null);
-		} else {
-			// Restore tokens from cookies if they match current wallet
-			const accessToken = getCookie(COOKIE_NAMES.ACCESS_TOKEN);
-			const sessionToken = getCookie(COOKIE_NAMES.SESSION_TOKEN);
-			
-			if (accessToken && sessionToken && 
-			    cachedAddress?.toLowerCase() === address?.toLowerCase()) {
-				setToken(accessToken);
-				setSession(sessionToken);
-				setAuthenticatedAddress(address);
-			}
-		}
-	}, [address, chainId]);
+		setAuth(current);
+	}, [address]);
 
+	// Drop the session the moment it expires, so the UI offers to sign in again instead of failing.
+	useEffect(() => {
+		if (!auth) return;
+		const timer = setTimeout(() => {
+			writeAuth(null);
+			setAuth(null);
+		}, Math.max(0, auth.expiresAt - Date.now()));
+		return () => clearTimeout(timer);
+	}, [auth]);
+
+	// Expired sessions never get here: readAuth drops them and the timer above clears them on time.
+	const valid = Boolean(auth && address && auth.address.toLowerCase() === address.toLowerCase());
 
 	const authenticate = async () => {
 		if (!address || !chainId || isAuthenticating) return;
 		
-		// Check if we already have valid tokens in cookies
-		if (!isAuthExpired() && token && session) {
-			return { token, session };
-		}
+		if (valid && auth) return { token: auth.accessToken, session: auth.sessionToken };
 
 		try {
 			setIsAuthenticating(true);
@@ -157,8 +118,6 @@ export function useManifoldAuth() {
 				grantType: "signature",
 			};
 
-			console.log("Token request body:", tokenBody);
-
 			const tokenResponse = await fetch(
 				"https://oauth2.manifoldxyz.dev/token",
 				{
@@ -171,14 +130,9 @@ export function useManifoldAuth() {
 			);
 
 			const tokenData = await tokenResponse.json();
-			console.log("Token response:", tokenResponse.status, tokenData);
-
 			if (!tokenResponse.ok) {
-				throw new Error(
-					`Token request failed: ${tokenResponse.status} - ${JSON.stringify(
-						tokenData
-					)}`
-				);
+				// The response can echo credentials, so report only the status and Manifold's message.
+				throw new Error(`Manifold sign-in failed (${tokenResponse.status})${tokenData?.error ? `: ${tokenData.error}` : ""}`);
 			}
 
 			const accessToken = tokenData.access_token;
@@ -203,46 +157,29 @@ export function useManifoldAuth() {
 				if (sessionResponse.status === 400 && sessionData.error === "User not found") {
 					throw new Error("User not registered with Manifold. Please register at studio.manifold.xyz first.");
 				}
-				throw new Error(
-					`Session request failed: ${sessionResponse.status} - ${JSON.stringify(
-						sessionData
-					)}`
-				);
+				throw new Error(`Manifold session failed (${sessionResponse.status})${sessionData?.error ? `: ${sessionData.error}` : ""}`);
 			}
 			const sessionToken = sessionData.token as string;
 			if (!sessionToken) throw new Error("Failed to get session token");
 
-			// Save tokens, wallet address, and chain ID to cookies with 1-hour expiration
-			const expiresAt = Date.now() + 60 * 60 * 1000; // 1 hour from now
-			setCookie(COOKIE_NAMES.ACCESS_TOKEN, accessToken, 1);
-			setCookie(COOKIE_NAMES.SESSION_TOKEN, sessionToken, 1);
-			setCookie(COOKIE_NAMES.EXPIRES_AT, expiresAt.toString(), 1);
-			setCookie(COOKIE_NAMES.WALLET_ADDRESS, address, 1);
-			setCookie(COOKIE_NAMES.CHAIN_ID, chainId.toString(), 1);
-
-			setToken(accessToken);
-			setSession(sessionToken);
-			setAuthenticatedAddress(address);
+			const next = { accessToken, sessionToken, address, expiresAt: Date.now() + LIFETIME_MS };
+			writeAuth(next);
+			setAuth(next);
 			return { token: accessToken, session: sessionToken };
-		} catch (error) {
-			console.error("Manifold authentication error:", error);
-			throw error;
 		} finally {
 			setIsAuthenticating(false);
 		}
 	};
 
 	const logout = () => {
-		clearAuthCookies();
-		setToken("");
-		setSession("");
-		setAuthenticatedAddress(null);
+		writeAuth(null);
+		setAuth(null);
 	};
 
 	return {
-		token,
-		session,
-		isAuthenticated: !!(token && session && authenticatedAddress === address),
+		token: valid && auth ? auth.accessToken : "",
+		session: valid && auth ? auth.sessionToken : "",
+		isAuthenticated: valid,
 		isAuthenticating,
 		authenticate,
 		logout,

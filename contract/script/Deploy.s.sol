@@ -1,34 +1,49 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.27 <0.9.0;
 
-import { BaseScript } from "./Base.s.sol";
+import { console2 as console } from "forge-std/Script.sol";
+import { DeploymentParams } from "./DeploymentParams.sol";
 import { MURIProtocol } from "../src/MURIProtocol.sol";
-import { ICreateX } from "./interfaces/ICreateX.sol";
 import { MURIProtocolManifoldExtension } from "../src/MURIProtocolManifoldExtension.sol";
 
-contract Deploy is BaseScript {
-    ICreateX constant CREATEX_FACTORY = ICreateX(0xba5Ed099633D3B313e4D5F7bdc1305d3c28ba5Ed);
+/// @notice Deploys MURIProtocol and MURIProtocolManifoldExtension with CreateX at the same addresses as on
+/// Ethereum, Base and Sepolia. Contracts already present on the chain are skipped.
+/// @dev Signs with whatever wallet forge is given (--account, --ledger, --private-key), which must be OWNER:
+///   forge script script/Deploy.s.sol --rpc-url <chain> --sender 0x28996f7DECe7E058EBfC56dFa9371825fBfa515A \
+///     --account <keystore> [--broadcast]
+contract Deploy is DeploymentParams {
+    function run() public returns (MURIProtocol muriProtocol, MURIProtocolManifoldExtension extension) {
+        require(msg.sender == OWNER, "Signer is not OWNER; pass --sender and a matching wallet");
 
-    function run() public broadcast returns (MURIProtocol muriProtocol, MURIProtocolManifoldExtension extension) {
-        // Read minified HTML template
-        string memory htmlTemplate = vm.readFile("html-template/minified.html");
-
-        // Generate deterministic salts for each contract
-        bytes32 muriSalt = 0x8bff22fae026dc021e2573000000000000000000000000000000000000000000;
-        bytes32 extensionSalt = 0x16a3b43ce973fb01c4baf0000000000000000000000000000000000000000000;
-
-        // Deploy MURIProtocol via CREATE2 for deterministic deployment
-        bytes memory muriCreationCode =
-            abi.encodePacked(type(MURIProtocol).creationCode, abi.encode(htmlTemplate, false, broadcaster));
-        muriProtocol = MURIProtocol(CREATEX_FACTORY.deployCreate2(muriSalt, muriCreationCode));
-
-        // Deploy MURIProtocolManifoldExtension via CREATE2 for deterministic deployment
-        bytes memory extensionCreationCode = abi.encodePacked(
-            type(MURIProtocolManifoldExtension).creationCode, abi.encode(address(muriProtocol), broadcaster)
+        bytes memory muriInitCode = _muriInitCode();
+        bytes memory extensionInitCode = _extensionInitCode(MURI_ADDRESS);
+        require(
+            _createXAddress(MURI_SALT, muriInitCode) == MURI_ADDRESS,
+            "MURIProtocol init code changed: it would not deploy to MURI_ADDRESS"
         );
-        extension = MURIProtocolManifoldExtension(CREATEX_FACTORY.deployCreate2(extensionSalt, extensionCreationCode));
+        require(
+            _createXAddress(EXTENSION_SALT, extensionInitCode) == EXTENSION_ADDRESS,
+            "Extension init code changed: it would not deploy to EXTENSION_ADDRESS"
+        );
 
-        // Configure the extension
-        extension.setMURIProtocol(address(muriProtocol));
+        muriProtocol = MURIProtocol(MURI_ADDRESS);
+        extension = MURIProtocolManifoldExtension(EXTENSION_ADDRESS);
+
+        vm.startBroadcast();
+        if (MURI_ADDRESS.code.length == 0) {
+            require(CREATEX.deployCreate2(MURI_SALT, muriInitCode) == MURI_ADDRESS, "MURIProtocol address mismatch");
+        } else {
+            console.log("MURIProtocol already deployed on chain", block.chainid);
+        }
+        if (EXTENSION_ADDRESS.code.length == 0) {
+            require(
+                CREATEX.deployCreate2(EXTENSION_SALT, extensionInitCode) == EXTENSION_ADDRESS,
+                "Extension address mismatch"
+            );
+            extension.setMURIProtocol(MURI_ADDRESS);
+        } else {
+            console.log("Extension already deployed on chain", block.chainid);
+        }
+        vm.stopBroadcast();
     }
 }

@@ -1,2058 +1,876 @@
-import { useMemo, useState, useCallback, useEffect, useRef } from "react";
-import {
-	useWriteContract,
-	useWaitForTransactionReceipt,
-	useReadContracts,
-} from "wagmi";
-import { simulateContract } from "wagmi/actions";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useConnection } from "wagmi";
+import { Link, useSearchParams } from "react-router-dom";
+import { isAddress } from "viem";
 import type { Address } from "viem";
+import NetworkNotice from "../components/NetworkNotice";
 import { muriAbi } from "../abis/muri-abi";
-import { wagmiConfig } from "../lib/wagmi";
-import fastlz from "../lib/fastlz";
+import Layout from "../components/Layout";
+import ConnectWallet from "../components/ConnectWallet";
+import TokenBrowser from "../components/TokenBrowser";
+import UriList from "../components/UriList";
+import StorageUploader from "../components/StorageUploader";
+import AttributesEditor from "../components/AttributesEditor";
+import { TxFeedback } from "../components/TxFeedback";
 import {
-	isThumbnailSupported,
+	Button,
+	ButtonLink,
+	Choice,
+	Disclosure,
+	Dropzone,
+	Field,
+	Input,
+	Loader,
+	LoadingLine,
+	Notice,
+	PageTitle,
+	Rule,
+	Section,
+	StatusLabel,
+	Textarea,
+} from "../components/ui";
+import { useMuriToken } from "../hooks/useMuriToken";
+import type { MuriToken } from "../hooks/useMuriToken";
+import { useMuriTransaction } from "../hooks/useMuriTransaction";
+import { usePageChain } from "../hooks/usePageChain";
+import { useIsCollectionAdmin } from "../hooks/useIsCollectionAdmin";
+import {
+	ARTIST_PERMISSIONS,
+	DISPLAY_MODES,
+	MURI_ADDRESS,
+	buildMetadataFields,
+	formatBytes,
+	hasPermission,
+	parseMetadata,
+	parseMetadataFields,
+	prepareHtmlTemplate,
+	prepareOnChainThumbnail,
+	shortAddress,
+} from "../lib/muri";
+import { uriProblem } from "../lib/uri";
+import { chainName } from "../lib/chains";
+import type { AppChainId } from "../lib/chains";
+import { deployPointer } from "../lib/sstore2";
+import { requireTerms } from "../lib/terms";
+import { describeContractError } from "../utils/rpcErrors";
+import type { StoredFile } from "../lib/storage";
+import type { Attribute, PermissionKey, PreparedTemplate, PreparedThumbnail } from "../lib/muri";
+import {
 	getThumbnailAcceptAttribute,
 	getUnsupportedThumbnailMessage,
+	isThumbnailSupported,
 } from "../utils/fileValidation";
-import FilePreview from "../components/FilePreview";
-import type { Attribute } from "../types/metadata";
-import Header from "../components/Header";
-import { useTheme } from "../hooks/useTheme";
-import Footer from "../components/Footer";
-import PageBackground from "../components/PageBackground";
-import { getPreflightMessage, isRpcTransportError } from "../utils/rpcErrors";
-import { readError, readResult } from "../utils/readResults";
 
-type TokenPermissions = {
-	flags: number;
-};
+type Tx = ReturnType<typeof useMuriTransaction>;
 
-type TokenArtwork = {
-	selectedArtistUriIndex: bigint;
-};
+interface EditorProps {
+	creator: Address;
+	tokenId: bigint;
+	token: MuriToken;
+	tx: Tx;
+	chainId: AppChainId;
+}
 
-type TokenData = readonly [
-	string,
-	unknown,
-	TokenArtwork,
-	TokenPermissions,
-	number,
-	unknown,
-];
+function ArtworkUris({ creator, tokenId, token, tx }: EditorProps) {
+	const [newUri, setNewUri] = useState("");
+	// Copies uploaded from this page, kept until they're on the token so a failed or rejected
+	// add-transaction never loses a paid upload.
+	const [uploaded, setUploaded] = useState<StoredFile[]>([]);
+	// Direct mode: the link to display again after a removal shuffles the list.
+	const reselect = useRef<{ uri: string; length: number } | undefined>(undefined);
+	const canEdit = hasPermission(token.flags, "artistAddRemove");
+	const canChoose = hasPermission(token.flags, "artistChooseUris");
+	const invalid = newUri.trim() ? uriProblem(newUri.trim()) : null;
+	const pending = uploaded.filter((u) => !token.artistUris.includes(u.uri));
 
-type ThumbnailInfo = readonly [number, bigint];
-
-export default function Update() {
-	const [sp] = useSearchParams();
-	const navigate = useNavigate();
-	const creator = (sp.get("creator") || "") as Address;
-
-	// Token to update
-	const [tokenId, setTokenId] = useState("");
-
-	// Metadata
-	const [name, setName] = useState("");
-	const [description, setDescription] = useState("");
-	const [attributes, setAttributes] = useState<Attribute[]>([]);
-
-	// Thumbnail (on-chain)
-	const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
-	const [thumbnailPreview, setThumbnailPreview] = useState<string>("");
-	const [thumbMime, setThumbMime] = useState("");
-	const [thumbLength, setThumbLength] = useState<number>(0);
-	const [thumbChunks, setThumbChunks] = useState<string[]>([]);
-
-	// Display mode
-	const [displayMode, setDisplayMode] = useState(1);
-
-	// URI management
-	const [newArtworkUri, setNewArtworkUri] = useState("");
-	const [newThumbnailUri, setNewThumbnailUri] = useState("");
-	const [thumbnailUriList, setThumbnailUriList] = useState<string[]>([]);
-
-	// HTML Template
-	const [htmlTemplateFile, setHtmlTemplateFile] = useState<File | null>(null);
-	const [htmlTemplateContent, setHtmlTemplateContent] = useState<string>("");
-	const [htmlTemplateChunks, setHtmlTemplateChunks] = useState<string[]>([]);
-
-	// Selection updates
-	const [selectedArtworkIndex, setSelectedArtworkIndex] = useState(0);
-	const [selectedThumbnailIndex, setSelectedThumbnailIndex] = useState(0);
-
-	// Permission revocation state
-	const [revokeUpdateThumbnail, setRevokeUpdateThumbnail] = useState(false);
-	const [revokeUpdateMetadata, setRevokeUpdateMetadata] = useState(false);
-	const [revokeChooseUris, setRevokeChooseUris] = useState(false);
-	const [revokeAddRemoveUris, setRevokeAddRemoveUris] = useState(false);
-	const [revokeChooseThumbnail, setRevokeChooseThumbnail] = useState(false);
-	const [revokeUpdateDisplayMode, setRevokeUpdateDisplayMode] = useState(false);
-	const [revokeUpdateTemplate, setRevokeUpdateTemplate] = useState(false);
-
-	// Theme
-	const { isDarkMode, toggleTheme } = useTheme();
-
-	// Transaction state
-	const {
-		data: hash,
-		isPending,
-		writeContract,
-		error: writeError,
-	} = useWriteContract();
-	const {
-		isLoading: isConfirming,
-		isSuccess,
-		error: receiptError,
-	} = useWaitForTransactionReceipt({
-		hash,
-	});
-
-	// Track which action is currently being performed
-	const [currentAction, setCurrentAction] = useState<string | null>(null);
-	const [preflightMessage, setPreflightMessage] = useState<string | null>(null);
-	const refetchedSuccessHash = useRef<`0x${string}` | undefined>(undefined);
-	const muriAddress = import.meta.env.VITE_MURI_ADDRESS as Address;
-	const hasTokenSelection = Boolean(creator && /^\d+$/.test(tokenId.trim()));
-	const tokenIdBigInt = useMemo(() => {
-		try {
-			return tokenId.trim() ? BigInt(tokenId.trim()) : 0n;
-		} catch {
-			return 0n;
-		}
-	}, [tokenId]);
-
-	const tokenReadContracts = useMemo(() => {
-		if (!hasTokenSelection) return undefined;
-
-		const tokenArgs = [creator, tokenIdBigInt] as const;
-		return [
-			{
-				abi: muriAbi,
-				address: muriAddress,
-				functionName: "tokenData",
-				args: tokenArgs,
-			},
-			{
-				abi: muriAbi,
-				address: muriAddress,
-				functionName: "getPermissions",
-				args: tokenArgs,
-			},
-			{
-				abi: muriAbi,
-				address: muriAddress,
-				functionName: "getArtwork",
-				args: tokenArgs,
-			},
-			{
-				abi: muriAbi,
-				address: muriAddress,
-				functionName: "getThumbnailInfo",
-				args: tokenArgs,
-			},
-			{
-				abi: muriAbi,
-				address: muriAddress,
-				functionName: "getArtistArtworkUris",
-				args: tokenArgs,
-			},
-			{
-				abi: muriAbi,
-				address: muriAddress,
-				functionName: "getThumbnailUris",
-				args: tokenArgs,
-			},
-		] as const;
-	}, [creator, hasTokenSelection, muriAddress, tokenIdBigInt]);
-
-	const {
-		data: tokenReadResults,
-		error: tokenReadsError,
-		isLoading: tokenDataLoading,
-		refetch: refetchTokenReads,
-	} = useReadContracts({
-		allowFailure: true,
-		contracts: tokenReadContracts,
-		query: {
-			enabled: hasTokenSelection,
-			staleTime: 30_000,
-		},
-	});
-
-	const tokenData = readResult<TokenData>(tokenReadResults?.[0]);
-	const tokenDataError = readError(tokenReadResults?.[0]) ?? tokenReadsError;
-	const permissions = readResult<TokenPermissions>(tokenReadResults?.[1]);
-	const artwork = readResult<TokenArtwork>(tokenReadResults?.[2]);
-	const thumbnailInfo = readResult<ThumbnailInfo>(tokenReadResults?.[3]);
-	const artistArtworkUris = readResult<readonly string[]>(tokenReadResults?.[4]);
-	const artistThumbnailUris = readResult<readonly string[]>(tokenReadResults?.[5]);
-
-	// Initialize data from contract when data loads
 	useEffect(() => {
-		if (tokenData) {
-			setDisplayMode(Number(tokenData[4])); // displayMode
-		}
-		if (artwork) {
-			setSelectedArtworkIndex(Number(artwork.selectedArtistUriIndex));
-		}
-		if (thumbnailInfo) {
-			setSelectedThumbnailIndex(Number(thumbnailInfo[1]));
-		}
-		if (artistThumbnailUris) {
-			setThumbnailUriList([...artistThumbnailUris]);
-		}
-	}, [tokenData, artwork, thumbnailInfo, artistThumbnailUris]);
+		if (tx.state.action === "add-uri" && tx.state.phase === "confirmed") setNewUri("");
+	}, [tx.state.action, tx.state.phase]);
 
-	// Derived state from contract data
-	const isOnChainThumbnail = thumbnailInfo ? thumbnailInfo[0] === 0 : true;
-	const hasArtistUpdateMetaPermission = permissions
-		? (Number(permissions.flags) & (1 << 1)) !== 0
-		: false;
-	const hasArtistUpdateThumbPermission = permissions
-		? (Number(permissions.flags) & (1 << 0)) !== 0
-		: false;
-	const hasArtistUpdateTemplatePermission = permissions
-		? (Number(permissions.flags) & (1 << 6)) !== 0
-		: false;
-
-	// Additional permission checks for UI
-	const hasArtistChooseUrisPermission = permissions
-		? (Number(permissions.flags) & (1 << 2)) !== 0
-		: false;
-	const hasArtistAddRemovePermission = permissions
-		? (Number(permissions.flags) & (1 << 3)) !== 0
-		: false;
-	const hasArtistChooseThumbPermission = permissions
-		? (Number(permissions.flags) & (1 << 4)) !== 0
-		: false;
-	const hasArtistUpdateModePermission = permissions
-		? (Number(permissions.flags) & (1 << 5)) !== 0
-		: false;
-
-	const prepareThumbnail = useCallback(async (file: File) => {
-		setThumbnailFile(file);
-		setThumbMime(file.type);
-
-		// Create preview
-		const reader = new FileReader();
-		reader.onload = (e) => setThumbnailPreview(e.target?.result as string);
-		reader.readAsDataURL(file);
-
-		// Compress and chunk
-		const buffer = await file.arrayBuffer();
-		const compressed = fastlz.compress(new Uint8Array(buffer));
-		setThumbLength(buffer.byteLength);
-
-		const CHUNK_SIZE = 20 * 1024; // 23KB per chunk
-		const chunks: string[] = [];
-		for (let i = 0; i < compressed.length; i += CHUNK_SIZE) {
-			const chunk = compressed.slice(i, i + CHUNK_SIZE);
-			chunks.push(
-				`0x${Array.from(chunk)
-					.map((b) => (b as number).toString(16).padStart(2, "0"))
-					.join("")}`
-			);
-		}
-		setThumbChunks(chunks);
-	}, []);
-
-	const prepareHtmlTemplate = useCallback(async (file: File) => {
-		setHtmlTemplateFile(file);
-
-		// Read file content
-		const reader = new FileReader();
-		reader.onload = (e) => {
-			const content = e.target?.result as string;
-			setHtmlTemplateContent(content);
-
-			// For HTML templates, we store them as string chunks (not compressed)
-			const CHUNK_SIZE = 20 * 1024; // 20KB per chunk for text
-			const chunks: string[] = [];
-			for (let i = 0; i < content.length; i += CHUNK_SIZE) {
-				chunks.push(content.slice(i, i + CHUNK_SIZE));
-			}
-			setHtmlTemplateChunks(chunks);
-		};
-		reader.readAsText(file);
-	}, []);
-
-	const handleAddAttribute = () => {
-		setAttributes([...attributes, { trait_type: "", value: "" }]);
-	};
-
-	const handleAttributeChange = (
-		index: number,
-		field: keyof Attribute,
-		value: string | number
-	) => {
-		const newAttributes = [...attributes];
-		// @ts-expect-error - dynamic field assignment
-		newAttributes[index][field] = value;
-		setAttributes(newAttributes);
-	};
-
-	const handleRemoveAttribute = (index: number) => {
-		setAttributes(attributes.filter((_, i) => i !== index));
-	};
-
-	const metadataJson = useMemo(() => {
-		const fields: string[] = [];
-		if (name) fields.push(`"name":${JSON.stringify(name)}`);
-		if (description)
-			fields.push(`"description":${JSON.stringify(description)}`);
-		if (attributes.length > 0) {
-			const validAttrs = attributes
-				.filter((a) => a.trait_type && a.value !== "")
-				.map((attr) => {
-					const parts = [
-						`"trait_type":${JSON.stringify(attr.trait_type)}`,
-						`"value":${JSON.stringify(attr.value)}`,
-					];
-					if (attr.display_type) {
-						parts.push(`"display_type":${JSON.stringify(attr.display_type)}`);
-					}
-					return `{${parts.join(",")}}`;
-				});
-			if (validAttrs.length > 0) {
-				fields.push(`"attributes":[${validAttrs.join(",")}]`);
-			}
-		}
-		return fields.join(",");
-	}, [name, description, attributes]);
-
-	// Check if any permissions are selected for revocation
-	const hasPermissionsToRevoke =
-		revokeUpdateThumbnail ||
-		revokeUpdateMetadata ||
-		revokeChooseUris ||
-		revokeAddRemoveUris ||
-		revokeChooseThumbnail ||
-		revokeUpdateDisplayMode ||
-		revokeUpdateTemplate;
-
-	const shouldContinueAfterPreflightError = (error: unknown) => {
-		setPreflightMessage(getPreflightMessage(error));
-		if (!isRpcTransportError(error)) {
-			setCurrentAction(null);
-			return false;
-		}
-		return true;
-	};
-
-	// Contract interaction functions
-	const updateMetadata = async () => {
-		if (!metadataJson) return;
-		setCurrentAction("updateMetadata");
-		setPreflightMessage(null);
-		try {
-			await simulateContract(wagmiConfig, {
-				abi: muriAbi,
-				address: muriAddress,
-				functionName: "updateMetadata",
-				args: [creator, tokenIdBigInt, metadataJson],
-			});
-		} catch (error) {
-			if (!shouldContinueAfterPreflightError(error)) return;
-		}
-		writeContract({
+	const add = (uri: string) =>
+		tx.run("add-uri", {
 			abi: muriAbi,
-			address: muriAddress,
-			functionName: "updateMetadata",
-			args: [creator, tokenIdBigInt, metadataJson],
-		});
-	};
-
-	const updateThumbnail = async () => {
-		if (!thumbnailFile || thumbChunks.length === 0) return;
-		setCurrentAction("updateThumbnail");
-		setPreflightMessage(null);
-		const thumbnail = {
-			kind: 0, // ON_CHAIN
-			onChain: {
-				mimeType: thumbMime,
-				chunks: [] as Address[],
-				zipped: true,
-			},
-			offChain: {
-				uris: [] as string[],
-				selectedUriIndex: 0n,
-			},
-		};
-		try {
-			await simulateContract(wagmiConfig, {
-				abi: muriAbi,
-				address: muriAddress,
-				functionName: "updateThumbnail",
-				args: [
-					creator,
-					tokenIdBigInt,
-					thumbnail,
-					thumbChunks as readonly `0x${string}`[],
-				],
-			});
-		} catch (error) {
-			if (!shouldContinueAfterPreflightError(error)) return;
-		}
-		writeContract({
-			abi: muriAbi,
-			address: muriAddress,
-			functionName: "updateThumbnail",
-			args: [
-				creator,
-				tokenIdBigInt,
-				thumbnail,
-				thumbChunks as readonly `0x${string}`[],
-			],
-		});
-	};
-
-	const addArtworkUri = () => {
-		if (!newArtworkUri.trim()) return;
-		setCurrentAction("addArtworkUri");
-		writeContract({
-			abi: muriAbi,
-			address: muriAddress,
+			address: MURI_ADDRESS,
 			functionName: "addArtworkUris",
-			args: [creator, tokenIdBigInt, [newArtworkUri.trim()]],
+			args: [creator, tokenId, [uri]],
 		});
-		setNewArtworkUri("");
-	};
 
-	const removeArtworkUri = (index: number) => {
-		setCurrentAction("removeArtworkUri");
-		writeContract({
+	const select = (i: number) =>
+		tx.run("select-uri", {
 			abi: muriAbi,
-			address: muriAddress,
-			functionName: "removeArtworkUris",
-			args: [creator, tokenIdBigInt, [BigInt(index)]],
-		});
-	};
-
-	const addThumbnailUri = () => {
-		if (!newThumbnailUri.trim()) return;
-		setThumbnailUriList([...thumbnailUriList, newThumbnailUri.trim()]);
-		setNewThumbnailUri("");
-	};
-
-	const removeThumbnailUri = (index: number) => {
-		setThumbnailUriList(thumbnailUriList.filter((_, i) => i !== index));
-	};
-
-	const updateOffChainThumbnail = async () => {
-		if (thumbnailUriList.length === 0) return;
-		setCurrentAction("updateOffChainThumbnail");
-		setPreflightMessage(null);
-		console.log("Updating off-chain thumbnail URIs:", thumbnailUriList);
-		console.log("Selected thumbnail index:", selectedThumbnailIndex);
-
-		const thumbnail = {
-			kind: 1, // OFF_CHAIN
-			onChain: {
-				mimeType: "",
-				chunks: [] as Address[],
-				zipped: false,
-			},
-			offChain: {
-				uris: thumbnailUriList,
-				selectedUriIndex: BigInt(
-					Math.min(selectedThumbnailIndex, thumbnailUriList.length - 1)
-				),
-			},
-		};
-		try {
-			await simulateContract(wagmiConfig, {
-				abi: muriAbi,
-				address: muriAddress,
-				functionName: "updateThumbnail",
-				args: [creator, tokenIdBigInt, thumbnail, []],
-			});
-		} catch (error) {
-			if (!shouldContinueAfterPreflightError(error)) return;
-		}
-		writeContract({
-			abi: muriAbi,
-			address: muriAddress,
-			functionName: "updateThumbnail",
-			args: [creator, tokenIdBigInt, thumbnail, []],
-		});
-	};
-
-	const updateDisplayMode = async () => {
-		setCurrentAction("updateDisplayMode");
-		setPreflightMessage(null);
-		try {
-			await simulateContract(wagmiConfig, {
-				abi: muriAbi,
-				address: muriAddress,
-				functionName: "setDisplayMode",
-				args: [creator, tokenIdBigInt, displayMode],
-			});
-		} catch (error) {
-			if (!shouldContinueAfterPreflightError(error)) return;
-		}
-		writeContract({
-			abi: muriAbi,
-			address: muriAddress,
-			functionName: "setDisplayMode",
-			args: [creator, tokenIdBigInt, displayMode],
-		});
-	};
-
-	const updateArtworkSelection = () => {
-		setCurrentAction("updateArtworkSelection");
-		writeContract({
-			abi: muriAbi,
-			address: muriAddress,
+			address: MURI_ADDRESS,
 			functionName: "setSelectedUri",
-			args: [creator, tokenIdBigInt, BigInt(selectedArtworkIndex)],
+			args: [creator, tokenId, BigInt(i)],
 		});
+
+	// The contract removes by moving the last link into the gap, then clamps the selection to the
+	// new length. In direct mode that can change which link marketplaces load, so predict it.
+	const removalShiftsDisplay = (i: number) => {
+		const list = [...token.artistUris];
+		const displayed = list[token.selectedArtistUriIndex];
+		list[i] = list[list.length - 1];
+		list.pop();
+		const nextIndex = Math.min(token.selectedArtistUriIndex, Math.max(list.length - 1, 0));
+		return token.displayMode === 0 && i !== token.selectedArtistUriIndex && list[nextIndex] !== displayed;
 	};
 
-	// Note: Thumbnail selection is now handled within updateOffChainThumbnail
-
-	const updateHtmlTemplate = async () => {
-		if (!htmlTemplateFile || htmlTemplateChunks.length === 0) return;
-		setCurrentAction("updateHtmlTemplate");
-		setPreflightMessage(null);
-		try {
-			await simulateContract(wagmiConfig, {
-				abi: muriAbi,
-				address: muriAddress,
-				functionName: "updateHtmlTemplate",
-				args: [creator, tokenIdBigInt, htmlTemplateChunks, false],
-			});
-		} catch (error) {
-			if (!shouldContinueAfterPreflightError(error)) return;
-		}
-		writeContract({
+	const remove = (i: number) => {
+		reselect.current =
+			removalShiftsDisplay(i) && canChoose
+				? { uri: token.artistUris[token.selectedArtistUriIndex], length: token.artistUris.length - 1 }
+				: undefined;
+		void tx.run("remove-uri", {
 			abi: muriAbi,
-			address: muriAddress,
-			functionName: "updateHtmlTemplate",
-			args: [creator, tokenIdBigInt, htmlTemplateChunks, false], // false = not zipped for HTML
+			address: MURI_ADDRESS,
+			functionName: "removeArtworkUris",
+			args: [creator, tokenId, [BigInt(i)]],
 		});
 	};
 
-	const revokeSelectedPermissions = async () => {
-		if (!hasPermissionsToRevoke) return;
-		setCurrentAction("revokeSelectedPermissions");
-		setPreflightMessage(null);
-		try {
-			await simulateContract(wagmiConfig, {
-				abi: muriAbi,
-				address: muriAddress,
-				functionName: "revokeArtistPermissions",
-				args: [
-					creator,
-					tokenIdBigInt,
-					revokeUpdateThumbnail,
-					revokeUpdateMetadata,
-					revokeChooseUris,
-					revokeAddRemoveUris,
-					revokeChooseThumbnail,
-					revokeUpdateDisplayMode,
-					revokeUpdateTemplate,
-				],
-			});
-		} catch (error) {
-			if (!shouldContinueAfterPreflightError(error)) return;
-		}
-		writeContract({
-			abi: muriAbi,
-			address: muriAddress,
-			functionName: "revokeArtistPermissions",
-			args: [
-				creator,
-				tokenIdBigInt,
-				revokeUpdateThumbnail,
-				revokeUpdateMetadata,
-				revokeChooseUris,
-				revokeAddRemoveUris,
-				revokeChooseThumbnail,
-				revokeUpdateDisplayMode,
-				revokeUpdateTemplate,
-			],
-		});
-	};
-
-	const revokeAllPermissions = async () => {
-		setCurrentAction("revokeAllPermissions");
-		setPreflightMessage(null);
-		try {
-			await simulateContract(wagmiConfig, {
-				abi: muriAbi,
-				address: muriAddress,
-				functionName: "revokeAllArtistPermissions",
-				args: [creator, tokenIdBigInt],
-			});
-		} catch (error) {
-			if (!shouldContinueAfterPreflightError(error)) return;
-		}
-		writeContract({
-			abi: muriAbi,
-			address: muriAddress,
-			functionName: "revokeAllArtistPermissions",
-			args: [creator, tokenIdBigInt],
-		});
-	};
-
-	// Direct form submission handlers
-	const onSubmitMetadata = (e: React.FormEvent) => {
-		e.preventDefault();
-		void updateMetadata();
-	};
-
-	const onSubmitThumbnail = (e: React.FormEvent) => {
-		e.preventDefault();
-		void updateThumbnail();
-	};
-
-	const onSubmitHtmlTemplate = (e: React.FormEvent) => {
-		e.preventDefault();
-		void updateHtmlTemplate();
-	};
-
-	const onSubmitRevokePermissions = (e: React.FormEvent) => {
-		e.preventDefault();
-		void revokeSelectedPermissions();
-	};
-
-	const onSubmitRevokeAllPermissions = (e: React.FormEvent) => {
-		e.preventDefault();
-		void revokeAllPermissions();
-	};
-
-	// Effect to refetch data after successful transactions
+	// Once the removal is confirmed and the token re-read, put the displayed link back.
 	useEffect(() => {
-		if (isSuccess && hash && refetchedSuccessHash.current !== hash) {
-			refetchedSuccessHash.current = hash;
-			refetchTokenReads();
-			setCurrentAction(null); // Clear current action on success
+		const want = reselect.current;
+		if (!want || tx.busy || tx.state.action !== "remove-uri") return;
+		if (tx.state.phase === "failed") {
+			reselect.current = undefined;
+			return;
 		}
-	}, [hash, isSuccess, refetchTokenReads]);
-
-	// Clear current action on error
-	useEffect(() => {
-		if (writeError || receiptError) {
-			setCurrentAction(null);
-		}
-	}, [writeError, receiptError]);
-
-	if (!creator) {
-		return (
-			<div className="text-center py-12">
-				<p className={isDarkMode ? "text-zinc-400" : "text-zinc-600"}>
-					Please select a collection first.
-				</p>
-				<button
-					onClick={() => navigate("/collections")}
-					className="btn-primary mt-4"
-				>
-					Go to Collections
-				</button>
-			</div>
-		);
-	}
-
-	if (isSuccess) {
-		return (
-			<PageBackground
-				isDarkMode={isDarkMode}
-				className={`min-h-screen flex items-center justify-center`}
-			>
-				<div className="max-w-2xl mx-auto text-center p-8 animate-scale-in">
-					<div
-						className={`
-							inline-flex items-center justify-center w-20 h-20 rounded-full mb-6
-							${
-								isDarkMode
-									? "bg-success-dark-subtle"
-									: "bg-success-subtle"
-							}
-						`}
-					>
-						<svg
-							className={`w-10 h-10 ${isDarkMode ? "text-success-dark" : "text-success"}`}
-							fill="none"
-							stroke="currentColor"
-							viewBox="0 0 24 24"
-						>
-							<path
-								strokeLinecap="round"
-								strokeLinejoin="round"
-								strokeWidth={2}
-								d="M5 13l4 4L19 7"
-							/>
-						</svg>
-					</div>
-
-					<h2
-						className={`
-							text-3xl md:text-4xl font-bold mb-3
-							${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
-						`}
-					>
-						Updated Successfully!
-					</h2>
-					<p
-						className={`
-							text-lg mb-8
-							${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
-						`}
-					>
-						Token #{tokenId} has been updated
-					</p>
-
-					<div className="flex flex-col sm:flex-row gap-3 justify-center">
-						<button
-							onClick={() => navigate("/collections")}
-							className={`
-								px-6 py-3 rounded-lg font-semibold
-								border transition-all duration-200
-								${
-									isDarkMode
-										? "bg-surface-dark hover:bg-surface-hover-dark text-text-primary-dark border-border-dark"
-										: "bg-surface-light hover:bg-surface-hover-light text-text-primary-light border-border-light"
-								}
-							`}
-						>
-							Back to Collections
-						</button>
-						<button
-							onClick={() => window.location.reload()}
-							className={`
-								px-6 py-3 rounded-lg font-semibold
-								bg-primary hover:bg-primary-hover
-								dark:bg-primary-dark dark:hover:bg-primary-dark-hover
-								text-white
-								shadow-soft hover:shadow-medium
-								transition-all duration-200
-							`}
-					>
-						Update Another
-					</button>
-				</div>
-			</div>
-			</PageBackground>
-		);
-	}
+		if (tx.state.phase !== "confirmed" || token.artistUris.length !== want.length) return;
+		reselect.current = undefined;
+		const j = token.artistUris.indexOf(want.uri);
+		if (j >= 0 && j !== token.selectedArtistUriIndex) void select(j);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [tx.state.action, tx.state.phase, tx.busy, token.artistUris, token.selectedArtistUriIndex]);
 
 	return (
-		<PageBackground
-			isDarkMode={isDarkMode}
-			className={`scroll-smooth min-h-screen flex flex-col relative ${
-				isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"
-			}`}
+		<Section
+			title="Artwork URIs"
+			description={
+				token.displayMode === 1
+					? "Smart HTML tries these in order, then the owners' URIs."
+					: "Direct mode serves the displayed URI only."
+			}
 		>
-			<Header isDarkMode={isDarkMode} toggleTheme={toggleTheme} />
+			<div className="flex flex-col gap-8">
+				<UriList
+					uris={token.artistUris}
+					selectedIndex={token.selectedArtistUriIndex}
+					showSelection={token.displayMode === 0 && canChoose}
+					busy={tx.busy}
+					onSelect={(i) => void select(i)}
+					onRemove={canEdit && token.artistUris.length > 1 ? remove : undefined}
+				/>
+				{canEdit && token.artistUris.length > 1 && (
+					<p className="text-[12px] text-faint -mt-5">
+						Removing a URI moves the last one into its slot.
+						{token.displayMode === 0 &&
+							(canChoose
+								? " If that changes the displayed link, you'll be asked to display it again in a second transaction."
+								: " In direct mode that can change which link is displayed.")}
+					</p>
+				)}
+				<TxFeedback state={tx.state} action="select-uri" />
+				<TxFeedback state={tx.state} action="remove-uri" />
 
-			{/* Main Content */}
-			<div className="flex-grow">
-				<div className="px-4 md:px-6 lg:px-8 py-8 max-w-4xl mx-auto space-y-8">
-					<div className="text-center md:text-left">
-						<h1
-							className={`
-								text-3xl md:text-4xl font-bold mb-3
-								${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
-							`}
+				{canEdit ? (
+					<>
+						<Rule label="Add a link" />
+						<form
+							className="flex flex-col gap-2"
+							onSubmit={(e) => {
+								e.preventDefault();
+								if (!invalid && newUri.trim()) void add(newUri.trim());
+							}}
 						>
-							Update Your Artwork
-						</h1>
-						<p
-							className={`
-								text-lg
-								${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
-							`}
-						>
-							Manage metadata, URIs, permissions, and more
-						</p>
+							<div className="flex flex-col sm:flex-row gap-3">
+								<Input
+									aria-label="New artwork URI"
+									className="font-mono text-[13px] flex-1"
+									placeholder="https://…, ar://… or ipfs://…"
+									value={newUri}
+									onChange={(e) => setNewUri(e.target.value)}
+									spellCheck={false}
+								/>
+								<Button type="submit" variant="secondary" disabled={!newUri.trim() || Boolean(invalid) || tx.busy}>
+									Add
+								</Button>
+							</div>
+							{invalid && <p className="text-[13px] text-signal">{invalid}</p>}
+						</form>
+						<Rule label="Or upload another copy" />
+						<StorageUploader
+							expectedHash={token.fileHash}
+							stored={uploaded}
+							disabled={tx.busy}
+							onStored={(s) => {
+								setUploaded((prev) => [...prev, s]);
+								void add(s.uri);
+							}}
+						/>
+						{pending.length > 0 && (
+							<Notice tone="caution" title="Uploaded, not on the token yet">
+								<span className="flex flex-col gap-3">
+									<span>These copies are stored and paid for. Add them to the token:</span>
+									{pending.map((u) => (
+										<span key={u.uri} className="flex flex-wrap items-center gap-3">
+											<span className="font-mono text-[12px] break-all">{u.uri}</span>
+											<Button size="sm" variant="secondary" disabled={tx.busy} onClick={() => void add(u.uri)}>
+												Add to token
+											</Button>
+										</span>
+									))}
+								</span>
+							</Notice>
+						)}
+						<TxFeedback state={tx.state} action="add-uri" successMessage="Link added." />
+					</>
+				) : (
+					<StatusLabel tone="neutral">Adding and removing URIs is revoked</StatusLabel>
+				)}
+
+				{token.collectorUris.length > 0 && (
+					<div className="flex flex-col gap-3">
+						<Rule label={`Added by owners · ${token.collectorUris.length}`} />
+						<UriList uris={token.collectorUris} />
 					</div>
+				)}
+			</div>
+		</Section>
+	);
+}
 
-					{/* Token Selection */}
-					<div
-						className={`
-							p-6 rounded-xl
-							${
-								isDarkMode
-									? "bg-surface-dark border border-border-dark"
-									: "bg-surface-light border border-border-light shadow-soft"
+function DisplayMode({ creator, tokenId, token, tx }: EditorProps) {
+	const [mode, setMode] = useState(token.displayMode);
+	useEffect(() => setMode(token.displayMode), [token.displayMode]);
+
+	return (
+		<Section title="Display mode">
+			<div className="flex flex-col gap-3" role="radiogroup" aria-label="Display mode">
+				{DISPLAY_MODES.map((m) => (
+					<Choice
+						key={m.value}
+						type="radio"
+						name="display"
+						checked={mode === m.value}
+						onChange={() => setMode(m.value)}
+						title={m.name}
+						description={m.description}
+						meta={token.displayMode === m.value ? "Current" : undefined}
+					/>
+				))}
+				<div className="pt-3 flex flex-col gap-3">
+					<div>
+						<Button
+							variant="secondary"
+							disabled={mode === token.displayMode || tx.busy}
+							onClick={() =>
+								void tx.run("display-mode", {
+									abi: muriAbi,
+									address: MURI_ADDRESS,
+									functionName: "setDisplayMode",
+									args: [creator, tokenId, mode],
+								})
 							}
-						`}
-					>
-						<h3
-							className={`
-								text-xl font-bold mb-2
-								${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
-							`}
 						>
-							Select Token to Update
-						</h3>
-						<p
-							className={`
-								text-sm mb-4
-								${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
-							`}
-						>
-							Enter the token ID you want to modify
-						</p>
-						<div>
-							<label className="label">Token ID *</label>
-							<input
-								className="input-field"
-								placeholder="Enter token ID number"
-								value={tokenId}
-								onChange={(e) => setTokenId(e.target.value)}
-								required
-							/>
-							<p className="help-text">
-								The ID of the token you want to update
-							</p>
-						</div>
-
-						{
-							(tokenData && (
-								<div
-									className={`mt-4 p-4 ${
-										isDarkMode
-											? "bg-zinc-800"
-											: "bg-zinc-100 border border-zinc-300"
-									} rounded-lg`}
-								>
-									<p className="text-sm ${isDarkMode ? 'text-zinc-300' : 'text-zinc-700'}">
-										Token Status:
-									</p>
-									<div className="flex gap-4 mt-2">
-										<span
-											className={`text-sm ${
-												!hasArtistUpdateMetaPermission
-													? "text-red-400"
-													: "text-green-400"
-											}`}
-										>
-											Metadata:{" "}
-											{!hasArtistUpdateMetaPermission
-												? "No Permission"
-												: "Can Update"}
-										</span>
-										<span
-											className={`text-sm ${
-												!hasArtistUpdateThumbPermission
-													? "text-red-400"
-													: "text-green-400"
-											}`}
-										>
-											Thumbnail:{" "}
-											{!hasArtistUpdateThumbPermission
-												? "No Permission"
-												: "Can Update"}
-										</span>
-										<span className="text-sm ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}">
-											Thumbnail Type:{" "}
-											{isOnChainThumbnail ? "On-chain" : "Off-chain"}
-										</span>
-									</div>
-								</div>
-							)) as React.ReactNode
-						}
+							Save display mode
+						</Button>
 					</div>
-
-					{/* All Update Sections - Only show when token data is loaded */}
-					{
-						(tokenData && (
-							<div className="space-y-8">
-								{/* Metadata Updates */}
-								{hasArtistUpdateMetaPermission && (
-									<form onSubmit={onSubmitMetadata}>
-										<div className="card">
-											<h3
-												className={`text-lg font-semibold ${
-													isDarkMode ? "text-zinc-100" : "text-zinc-900"
-												} mb-4`}
-											>
-												Update Metadata
-											</h3>
-
-											<p
-												className={`${
-													isDarkMode ? "text-zinc-400" : "text-zinc-600"
-												} mb-4`}
-											>
-												Leave fields empty to keep existing values
-											</p>
-
-											<div className="space-y-4">
-												<div>
-													<label className="label">New Title</label>
-													<input
-														className="input-field"
-														placeholder="Updated artwork title"
-														value={name}
-														onChange={(e) => setName(e.target.value)}
-													/>
-												</div>
-												<div>
-													<label className="label">New Description (optional)</label>
-													<textarea
-														rows={4}
-														className="textarea-field"
-														placeholder="Updated description..."
-														value={description}
-														onChange={(e) => setDescription(e.target.value)}
-													/>
-												</div>
-											</div>
-
-											<div className="mt-6">
-												<label className="label">Properties</label>
-												<p className="help-text mb-3">
-													Update or add new attributes
-												</p>
-												{attributes.map((attr, index) => (
-													<div key={index} className="flex gap-2 mb-2">
-														<input
-															className="input-field flex-1"
-															placeholder="Property"
-															value={attr.trait_type}
-															onChange={(e) =>
-																handleAttributeChange(
-																	index,
-																	"trait_type",
-																	e.target.value
-																)
-															}
-														/>
-														<input
-															className="input-field flex-1"
-															placeholder="Value"
-															value={attr.value}
-															onChange={(e) =>
-																handleAttributeChange(
-																	index,
-																	"value",
-																	e.target.value
-																)
-															}
-														/>
-														<button
-															type="button"
-															onClick={() => handleRemoveAttribute(index)}
-															className="btn-ghost"
-														>
-															<svg
-																className="w-5 h-5"
-																fill="none"
-																stroke="currentColor"
-																viewBox="0 0 24 24"
-															>
-																<path
-																	strokeLinecap="round"
-																	strokeLinejoin="round"
-																	strokeWidth={2}
-																	d="M6 18L18 6M6 6l12 12"
-																/>
-															</svg>
-														</button>
-													</div>
-												))}
-												<button
-													type="button"
-													onClick={handleAddAttribute}
-													className="btn-secondary text-sm"
-												>
-													+ Add Property
-												</button>
-											</div>
-
-											<div className="flex justify-end mt-6">
-												<button
-													type="submit"
-													className="btn-primary"
-													disabled={
-														!metadataJson ||
-														isPending ||
-														isConfirming ||
-														currentAction !== null ||
-														!hasArtistUpdateMetaPermission
-													}
-												>
-													{currentAction === "updateMetadata"
-														? "Updating..."
-														: "Update Metadata"}
-												</button>
-											</div>
-										</div>
-									</form>
-								)}
-
-								{/* Display Mode */}
-								{hasArtistUpdateModePermission && (
-									<div className="card">
-										<h3
-											className={`text-lg font-semibold ${
-												isDarkMode ? "text-zinc-100" : "text-zinc-900"
-											} mb-4`}
-										>
-											Display Mode
-										</h3>
-										<div className="space-y-4">
-											<div>
-												<label className="label">Current Display Mode</label>
-												<select
-													className="input-field"
-													value={displayMode}
-													onChange={(e) =>
-														setDisplayMode(Number(e.target.value))
-													}
-												>
-													<option value={0}>Image</option>
-													<option value={1}>Smart HTML</option>
-												</select>
-											</div>
-
-											<button
-												type="button"
-												onClick={() => void updateDisplayMode()}
-												className="btn-secondary"
-												disabled={isPending || isConfirming || currentAction !== null}
-											>
-												{currentAction === "updateDisplayMode"
-													? "Updating..."
-													: "Update Display Mode"}
-											</button>
-										</div>
-									</div>
-								)}
-
-								{/* Artwork URI Management */}
-								{(hasArtistAddRemovePermission || hasArtistChooseUrisPermission) && (
-									<div className="card">
-										<h3
-											className={`text-lg font-semibold ${
-												isDarkMode ? "text-zinc-100" : "text-zinc-900"
-											} mb-4`}
-										>
-											Artwork URIs
-										</h3>
-										<div className="space-y-4">
-											{hasArtistAddRemovePermission && (
-												<div className="flex gap-2">
-													<input
-														className="input-field flex-1"
-														placeholder="ipfs://... or https://..."
-														value={newArtworkUri}
-														onChange={(e) => setNewArtworkUri(e.target.value)}
-													/>
-													<button
-														type="button"
-														onClick={addArtworkUri}
-														className="btn-primary"
-													>
-														Add
-													</button>
-												</div>
-											)}
-
-										{
-											(artistArtworkUris && artistArtworkUris.length > 0 && (
-												<div className="space-y-2">
-													<p className="text-sm ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}">
-														Current artwork URIs:
-													</p>
-													{artistArtworkUris.map(
-														(uri: string, index: number) => (
-															<div
-																key={index}
-																className="flex gap-2 items-center p-2 ${isDarkMode ? 'bg-zinc-800' : 'bg-zinc-100 border border-zinc-300'} rounded"
-															>
-																<span className="flex-1 text-sm font-mono ${isDarkMode ? 'text-zinc-300' : 'text-zinc-700'} break-all">
-																	{uri}
-																</span>
-																{hasArtistAddRemovePermission && (
-																	<button
-																		type="button"
-																		onClick={() => removeArtworkUri(index)}
-																		className="btn-ghost text-red-400 hover:text-red-300 p-1"
-																	>
-																		✕
-																	</button>
-																)}
-															</div>
-														)
-													)}
-												</div>
-											)) as React.ReactNode
-										}
-
-										{artistArtworkUris &&
-											artistArtworkUris.length > 0 &&
-											hasArtistChooseUrisPermission && (
-												<div>
-													<label className="label">
-														Selected Artwork (0-based index)
-													</label>
-													<select
-														className="input-field"
-														value={selectedArtworkIndex}
-														onChange={(e) =>
-															setSelectedArtworkIndex(parseInt(e.target.value))
-														}
-													>
-														{artistArtworkUris.map(
-															(uri: string, index: number) => (
-																<option key={index} value={index}>
-																	{index}:{" "}
-																	{uri.length > 50
-																		? `${uri.substring(0, 50)}...`
-																		: uri}
-																</option>
-															)
-														)}
-													</select>
-													<button
-														type="button"
-														onClick={updateArtworkSelection}
-														className="btn-secondary mt-2"
-														disabled={isPending || isConfirming || currentAction !== null}
-													>
-														{currentAction === "updateArtworkSelection"
-															? "Updating..."
-															: "Update Selection"}
-													</button>
-												</div>
-											)}
-										</div>
-									</div>
-								)}
-
-								{/* Thumbnail Management */}
-								{hasArtistUpdateThumbPermission && (
-									<div className="card">
-										<h3
-											className={`text-lg font-semibold ${
-												isDarkMode ? "text-zinc-100" : "text-zinc-900"
-											} mb-4`}
-										>
-											Thumbnail Management
-										</h3>
-
-										{isOnChainThumbnail ? (
-											<form onSubmit={onSubmitThumbnail}>
-												<p
-													className={`${
-														isDarkMode ? "text-zinc-400" : "text-zinc-600"
-													} mb-4`}
-												>
-													Upload a new on-chain thumbnail file
-												</p>
-												<div
-													className={`upload-zone ${
-														thumbnailFile ? "active" : ""
-													}`}
-													onDragOver={(e) => {
-														e.preventDefault();
-														e.currentTarget.classList.add("active");
-													}}
-													onDragLeave={(e) => {
-														e.currentTarget.classList.remove("active");
-													}}
-													onDrop={(e) => {
-														e.preventDefault();
-														e.currentTarget.classList.remove("active");
-														const file = e.dataTransfer.files?.[0];
-														if (file && isThumbnailSupported(file)) {
-															prepareThumbnail(file);
-														} else if (file) {
-															alert(getUnsupportedThumbnailMessage(file));
-														}
-													}}
-													onClick={() => {
-														const input = document.createElement("input");
-														input.type = "file";
-														input.accept = getThumbnailAcceptAttribute();
-														input.onchange = () => {
-															const file = input.files?.[0];
-															if (file && isThumbnailSupported(file)) {
-																prepareThumbnail(file);
-															} else if (file) {
-																alert(getUnsupportedThumbnailMessage(file));
-															}
-														};
-														input.click();
-													}}
-												>
-													{thumbnailPreview ? (
-														<div className="space-y-2">
-															<FilePreview
-																file={thumbnailFile}
-																previewUrl={thumbnailPreview}
-																maxHeight="max-h-32"
-															/>
-															<p className="text-sm ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'} text-center">
-																{thumbChunks.length} chunks • {thumbLength}{" "}
-																bytes original
-															</p>
-														</div>
-													) : (
-														<>
-															<svg
-																className={`w-8 h-8 ${
-																	isDarkMode ? "text-gray-400" : "text-gray-600"
-																} mx-auto mb-2`}
-																fill="none"
-																stroke="currentColor"
-																viewBox="0 0 24 24"
-															>
-																<path
-																	strokeLinecap="round"
-																	strokeLinejoin="round"
-																	strokeWidth={2}
-																	d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-																/>
-															</svg>
-															<p
-																className={`${
-																	isDarkMode ? "text-zinc-400" : "text-zinc-600"
-																} text-sm`}
-															>
-																Drop a new thumbnail or click to browse
-															</p>
-														</>
-													)}
-												</div>
-												<button
-													type="submit"
-													className="btn-primary mt-4 w-full"
-													disabled={
-														!thumbnailFile ||
-														thumbChunks.length === 0 ||
-														isPending ||
-														isConfirming ||
-														currentAction !== null
-													}
-												>
-													{currentAction === "updateThumbnail"
-														? "Updating..."
-														: "Update Thumbnail"}
-												</button>
-											</form>
-										) : (
-											<div className="space-y-4">
-												<p className="${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}">
-													Manage off-chain thumbnail URIs
-												</p>
-												{artistThumbnailUris &&
-													artistThumbnailUris.length > 0 &&
-													thumbnailUriList.length === 0 && (
-														<div className="p-3 bg-blue-500 bg-opacity-10 border border-blue-500 border-opacity-30 rounded">
-															<p className="text-sm text-blue-300">
-																💡 Current thumbnail URIs loaded. Add or remove
-																URIs below, then click "Update Thumbnail URIs"
-																to save changes.
-															</p>
-														</div>
-													)}
-												<div className="flex gap-2">
-													<input
-														className="input-field flex-1"
-														placeholder="ipfs://... or https://..."
-														value={newThumbnailUri}
-														onChange={(e) => setNewThumbnailUri(e.target.value)}
-													/>
-													<button
-														type="button"
-														onClick={addThumbnailUri}
-														className="btn-primary"
-														disabled={!newThumbnailUri.trim()}
-													>
-														Add
-													</button>
-												</div>
-
-												{thumbnailUriList.length > 0 && (
-													<div className="space-y-2">
-														<p className="text-sm ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}">
-															Thumbnail URIs to update:
-														</p>
-														{thumbnailUriList.map(
-															(uri: string, index: number) => (
-																<div
-																	key={index}
-																	className="flex gap-2 items-center p-2 ${isDarkMode ? 'bg-zinc-800' : 'bg-zinc-100 border border-zinc-300'} rounded"
-																>
-																	<span className="flex-1 text-sm font-mono ${isDarkMode ? 'text-zinc-300' : 'text-zinc-700'} break-all">
-																		{uri}
-																	</span>
-																	<button
-																		type="button"
-																		onClick={() => removeThumbnailUri(index)}
-																		className="btn-ghost text-red-400 hover:text-red-300 p-1"
-																	>
-																		✕
-																	</button>
-																</div>
-															)
-														)}
-													</div>
-												)}
-
-												{thumbnailUriList.length > 0 && (
-													<div>
-														<label className="label">
-															Selected Thumbnail (0-based index)
-														</label>
-														<select
-															className="input-field"
-															value={selectedThumbnailIndex}
-															onChange={(e) =>
-																setSelectedThumbnailIndex(
-																	parseInt(e.target.value)
-																)
-															}
-														>
-															{thumbnailUriList.map(
-																(uri: string, index: number) => (
-																	<option key={index} value={index}>
-																		{index}:{" "}
-																		{uri.length > 50
-																			? `${uri.substring(0, 50)}...`
-																			: uri}
-																	</option>
-																)
-															)}
-														</select>
-													</div>
-												)}
-
-												<button
-													type="button"
-													onClick={() => void updateOffChainThumbnail()}
-													className="btn-primary w-full"
-													disabled={
-														thumbnailUriList.length === 0 ||
-														isPending ||
-														isConfirming ||
-														currentAction !== null
-													}
-												>
-													{currentAction === "updateOffChainThumbnail"
-														? "Updating..."
-														: "Update Thumbnail URIs"}
-												</button>
-											</div>
-										)}
-									</div>
-								)}
-
-								{/* HTML Template Management */}
-								{hasArtistUpdateTemplatePermission && (
-									<div className="card">
-										<h3
-											className={`text-lg font-semibold ${
-												isDarkMode ? "text-zinc-100" : "text-zinc-900"
-											} mb-4`}
-										>
-											HTML Template Management
-										</h3>
-
-										<form onSubmit={onSubmitHtmlTemplate}>
-											<p
-												className={`${
-													isDarkMode ? "text-zinc-400" : "text-zinc-600"
-												} mb-4`}
-											>
-												Upload a custom HTML template for this token
-											</p>
-
-											<div
-												className={`upload-zone ${
-													htmlTemplateFile ? "active" : ""
-												}`}
-												onDragOver={(e) => {
-													e.preventDefault();
-													e.currentTarget.classList.add("active");
-												}}
-												onDragLeave={(e) => {
-													e.currentTarget.classList.remove("active");
-												}}
-												onDrop={(e) => {
-													e.preventDefault();
-													e.currentTarget.classList.remove("active");
-													const file = e.dataTransfer.files?.[0];
-													if (
-														file &&
-														(file.type === "text/html" ||
-															file.name.endsWith(".html"))
-													) {
-														prepareHtmlTemplate(file);
-													} else if (file) {
-														alert("Please upload an HTML file");
-													}
-												}}
-												onClick={() => {
-													const input = document.createElement("input");
-													input.type = "file";
-													input.accept = ".html,.htm";
-													input.onchange = () => {
-														const file = input.files?.[0];
-														if (
-															file &&
-															(file.type === "text/html" ||
-																file.name.endsWith(".html"))
-														) {
-															prepareHtmlTemplate(file);
-														} else if (file) {
-															alert("Please upload an HTML file");
-														}
-													};
-													input.click();
-												}}
-											>
-												{htmlTemplateFile ? (
-													<div className="space-y-2">
-														<div
-															className={`${
-																isDarkMode
-																	? "bg-zinc-800 border-zinc-700"
-																	: "bg-zinc-50 border-zinc-300"
-															} border rounded-lg p-4`}
-														>
-															<p
-																className={`text-sm font-medium ${
-																	isDarkMode ? "text-zinc-300" : "text-zinc-700"
-																} mb-2`}
-															>
-																{htmlTemplateFile.name}
-															</p>
-															<p
-																className={`text-xs ${
-																	isDarkMode ? "text-zinc-400" : "text-zinc-600"
-																}`}
-															>
-																{htmlTemplateChunks.length} chunks •{" "}
-																{htmlTemplateContent.length} characters
-															</p>
-															<details className="mt-2">
-																<summary
-																	className={`text-xs ${
-																		isDarkMode
-																			? "text-zinc-400"
-																			: "text-zinc-600"
-																	} cursor-pointer`}
-																>
-																	Preview content
-																</summary>
-																<pre
-																	className={`text-xs ${
-																		isDarkMode
-																			? "text-zinc-500"
-																			: "text-zinc-500"
-																	} mt-1 p-2 ${
-																		isDarkMode
-																			? "bg-zinc-900"
-																			: "bg-zinc-50 border border-zinc-300"
-																	} rounded max-h-32 overflow-auto`}
-																>
-																	{htmlTemplateContent.slice(0, 500)}
-																	{htmlTemplateContent.length > 500
-																		? "..."
-																		: ""}
-																</pre>
-															</details>
-														</div>
-													</div>
-												) : (
-													<>
-														<svg
-															className={`w-8 h-8 ${
-																isDarkMode ? "text-gray-400" : "text-gray-600"
-															} mx-auto mb-2`}
-															fill="none"
-															stroke="currentColor"
-															viewBox="0 0 24 24"
-														>
-															<path
-																strokeLinecap="round"
-																strokeLinejoin="round"
-																strokeWidth={2}
-																d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
-															/>
-														</svg>
-														<p
-															className={`${
-																isDarkMode ? "text-zinc-400" : "text-zinc-600"
-															} text-sm`}
-														>
-															Drop an HTML template or click to browse
-														</p>
-														<p
-															className={`text-xs ${
-																isDarkMode ? "text-zinc-500" : "text-zinc-500"
-															} mt-1`}
-														>
-															Use {"{{FILE_URIS}}"} and {"{{FILE_HASH}}"}{" "}
-															placeholders
-														</p>
-													</>
-												)}
-											</div>
-
-											<button
-												type="submit"
-												className="btn-primary mt-4 w-full"
-												disabled={
-													!htmlTemplateFile ||
-													htmlTemplateChunks.length === 0 ||
-													isPending ||
-													isConfirming ||
-													currentAction !== null
-												}
-											>
-												{currentAction === "updateHtmlTemplate"
-													? "Updating..."
-													: "Update HTML Template"}
-											</button>
-										</form>
-									</div>
-								)}
-
-								{/* Permission Management */}
-								<div className="card">
-									<h3
-										className={`text-lg font-semibold ${
-											isDarkMode ? "text-zinc-100" : "text-zinc-900"
-										} mb-4`}
-									>
-										Permission Management
-									</h3>
-									<div className="space-y-6">
-										<div className="space-y-4">
-											<p className="${isDarkMode ? 'text-zinc-300' : 'text-zinc-700'} font-medium">
-												Enhance trustlessness by reducing points of failure
-											</p>
-											<p className="${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'} text-sm leading-relaxed">
-												In crypto, trustlessness means your artwork doesn't
-												depend on any single party. By revoking your artist
-												permissions, you eliminate yourself as a potential point
-												of failure, making your artwork more decentralized and
-												trustworthy to collectors.
-											</p>
-											<p
-												className={`${
-													isDarkMode ? "text-zinc-400" : "text-zinc-600"
-												} text-sm`}
-											>
-												Once revoked, permissions cannot be restored. You
-												permanently lose the ability to modify the artwork, but
-												collectors gain assurance that the piece cannot be
-												changed or rugged.
-											</p>
-										</div>
-
-										{/* Individual Permission Revocation */}
-										<form onSubmit={onSubmitRevokePermissions}>
-											<div className="space-y-4">
-												<h4 className="text-base font-medium ${isDarkMode ? 'text-zinc-200' : 'text-zinc-800'}">
-													Revoke Specific Permissions
-												</h4>
-
-												<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-													<label className="flex items-center gap-3 p-3 ${isDarkMode ? 'bg-zinc-800/50 hover:bg-zinc-800/70' : 'bg-zinc-100 hover:bg-zinc-200 border border-zinc-300'} rounded-lg transition-colors cursor-pointer">
-														<input
-															type="checkbox"
-															checked={revokeUpdateThumbnail}
-															onChange={(e) =>
-																setRevokeUpdateThumbnail(e.target.checked)
-															}
-															className="checkbox"
-															disabled={!hasArtistUpdateThumbPermission}
-														/>
-														<div>
-															<span
-																className={`text-sm font-medium ${
-																	!hasArtistUpdateThumbPermission
-																		? "${isDarkMode ? 'text-zinc-500' : 'text-zinc-500'}"
-																		: "${isDarkMode ? 'text-zinc-300' : 'text-zinc-700'}"
-																}`}
-															>
-																Update Thumbnail
-															</span>
-															{!hasArtistUpdateThumbPermission && (
-																<p className="text-xs ${isDarkMode ? 'text-zinc-500' : 'text-zinc-500'}">
-																	Already revoked
-																</p>
-															)}
-														</div>
-													</label>
-
-													<label className="flex items-center gap-3 p-3 ${isDarkMode ? 'bg-zinc-800/50 hover:bg-zinc-800/70' : 'bg-zinc-100 hover:bg-zinc-200 border border-zinc-300'} rounded-lg transition-colors cursor-pointer">
-														<input
-															type="checkbox"
-															checked={revokeUpdateMetadata}
-															onChange={(e) =>
-																setRevokeUpdateMetadata(e.target.checked)
-															}
-															className="checkbox"
-															disabled={!hasArtistUpdateMetaPermission}
-														/>
-														<div>
-															<span
-																className={`text-sm font-medium ${
-																	!hasArtistUpdateMetaPermission
-																		? "${isDarkMode ? 'text-zinc-500' : 'text-zinc-500'}"
-																		: "${isDarkMode ? 'text-zinc-300' : 'text-zinc-700'}"
-																}`}
-															>
-																Update Metadata
-															</span>
-															{!hasArtistUpdateMetaPermission && (
-																<p className="text-xs ${isDarkMode ? 'text-zinc-500' : 'text-zinc-500'}">
-																	Already revoked
-																</p>
-															)}
-														</div>
-													</label>
-
-													<label className="flex items-center gap-3 p-3 ${isDarkMode ? 'bg-zinc-800/50 hover:bg-zinc-800/70' : 'bg-zinc-100 hover:bg-zinc-200 border border-zinc-300'} rounded-lg transition-colors cursor-pointer">
-														<input
-															type="checkbox"
-															checked={revokeChooseUris}
-															onChange={(e) =>
-																setRevokeChooseUris(e.target.checked)
-															}
-															className="checkbox"
-															disabled={!hasArtistChooseUrisPermission}
-														/>
-														<div>
-															<span
-																className={`text-sm font-medium ${
-																	!hasArtistChooseUrisPermission
-																		? "${isDarkMode ? 'text-zinc-500' : 'text-zinc-500'}"
-																		: "${isDarkMode ? 'text-zinc-300' : 'text-zinc-700'}"
-																}`}
-															>
-																Choose URIs
-															</span>
-															{!hasArtistChooseUrisPermission && (
-																<p className="text-xs ${isDarkMode ? 'text-zinc-500' : 'text-zinc-500'}">
-																	Already revoked
-																</p>
-															)}
-														</div>
-													</label>
-
-													<label className="flex items-center gap-3 p-3 ${isDarkMode ? 'bg-zinc-800/50 hover:bg-zinc-800/70' : 'bg-zinc-100 hover:bg-zinc-200 border border-zinc-300'} rounded-lg transition-colors cursor-pointer">
-														<input
-															type="checkbox"
-															checked={revokeAddRemoveUris}
-															onChange={(e) =>
-																setRevokeAddRemoveUris(e.target.checked)
-															}
-															className="checkbox"
-															disabled={!hasArtistAddRemovePermission}
-														/>
-														<div>
-															<span
-																className={`text-sm font-medium ${
-																	!hasArtistAddRemovePermission
-																		? "${isDarkMode ? 'text-zinc-500' : 'text-zinc-500'}"
-																		: "${isDarkMode ? 'text-zinc-300' : 'text-zinc-700'}"
-																}`}
-															>
-																Add/Remove URIs
-															</span>
-															{!hasArtistAddRemovePermission && (
-																<p className="text-xs ${isDarkMode ? 'text-zinc-500' : 'text-zinc-500'}">
-																	Already revoked
-																</p>
-															)}
-														</div>
-													</label>
-
-													<label className="flex items-center gap-3 p-3 ${isDarkMode ? 'bg-zinc-800/50 hover:bg-zinc-800/70' : 'bg-zinc-100 hover:bg-zinc-200 border border-zinc-300'} rounded-lg transition-colors cursor-pointer">
-														<input
-															type="checkbox"
-															checked={revokeChooseThumbnail}
-															onChange={(e) =>
-																setRevokeChooseThumbnail(e.target.checked)
-															}
-															className="checkbox"
-															disabled={!hasArtistChooseThumbPermission}
-														/>
-														<div>
-															<span
-																className={`text-sm font-medium ${
-																	!hasArtistChooseThumbPermission
-																		? "${isDarkMode ? 'text-zinc-500' : 'text-zinc-500'}"
-																		: "${isDarkMode ? 'text-zinc-300' : 'text-zinc-700'}"
-																}`}
-															>
-																Choose Thumbnail
-															</span>
-															{!hasArtistChooseThumbPermission && (
-																<p className="text-xs ${isDarkMode ? 'text-zinc-500' : 'text-zinc-500'}">
-																	Already revoked
-																</p>
-															)}
-														</div>
-													</label>
-
-													<label className="flex items-center gap-3 p-3 ${isDarkMode ? 'bg-zinc-800/50 hover:bg-zinc-800/70' : 'bg-zinc-100 hover:bg-zinc-200 border border-zinc-300'} rounded-lg transition-colors cursor-pointer">
-														<input
-															type="checkbox"
-															checked={revokeUpdateDisplayMode}
-															onChange={(e) =>
-																setRevokeUpdateDisplayMode(e.target.checked)
-															}
-															className="checkbox"
-															disabled={!hasArtistUpdateModePermission}
-														/>
-														<div>
-															<span
-																className={`text-sm font-medium ${
-																	!hasArtistUpdateModePermission
-																		? "${isDarkMode ? 'text-zinc-500' : 'text-zinc-500'}"
-																		: "${isDarkMode ? 'text-zinc-300' : 'text-zinc-700'}"
-																}`}
-															>
-																Update Display Mode
-															</span>
-															{!hasArtistUpdateModePermission && (
-																<p className="text-xs ${isDarkMode ? 'text-zinc-500' : 'text-zinc-500'}">
-																	Already revoked
-																</p>
-															)}
-														</div>
-													</label>
-
-													<label className="flex items-center gap-3 p-3 ${isDarkMode ? 'bg-zinc-800/50 hover:bg-zinc-800/70' : 'bg-zinc-100 hover:bg-zinc-200 border border-zinc-300'} rounded-lg transition-colors cursor-pointer">
-														<input
-															type="checkbox"
-															checked={revokeUpdateTemplate}
-															onChange={(e) =>
-																setRevokeUpdateTemplate(e.target.checked)
-															}
-															className="checkbox"
-															disabled={!hasArtistUpdateTemplatePermission}
-														/>
-														<div>
-															<span
-																className={`text-sm font-medium ${
-																	!hasArtistUpdateTemplatePermission
-																		? "${isDarkMode ? 'text-zinc-500' : 'text-zinc-500'}"
-																		: "${isDarkMode ? 'text-zinc-300' : 'text-zinc-700'}"
-																}`}
-															>
-																Update HTML Template
-															</span>
-															{!hasArtistUpdateTemplatePermission && (
-																<p className="text-xs ${isDarkMode ? 'text-zinc-500' : 'text-zinc-500'}">
-																	Already revoked
-																</p>
-															)}
-														</div>
-													</label>
-												</div>
-
-												<button
-													type="submit"
-													className="btn-secondary w-full"
-													disabled={
-														!hasPermissionsToRevoke ||
-														isPending ||
-														isConfirming ||
-														currentAction !== null
-													}
-												>
-													{currentAction === "revokeSelectedPermissions"
-														? "Revoking..."
-														: "Revoke Selected Permissions"}
-												</button>
-											</div>
-										</form>
-
-										{/* Revoke All Permissions */}
-										<form onSubmit={onSubmitRevokeAllPermissions}>
-											<div className="space-y-4 pt-4 border-t ${isDarkMode ? 'border-zinc-700' : 'border-zinc-300'}">
-												<h4 className="text-base font-medium ${isDarkMode ? 'text-zinc-200' : 'text-zinc-800'}">
-													Nuclear Option
-												</h4>
-												<p className="text-sm ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}">
-													Revoke all artist permissions at once for complete
-													decentralization. This makes your artwork permanently
-													immutable and eliminates all artist-related points of
-													failure, maximizing trustlessness.
-												</p>
-												<button
-													type="submit"
-													className="btn-danger w-full"
-													disabled={
-														isPending ||
-														isConfirming ||
-														currentAction !== null
-													}
-												>
-													{currentAction === "revokeAllPermissions"
-														? "Revoking..."
-														: "Revoke All Artist Permissions"}
-												</button>
-											</div>
-										</form>
-									</div>
-								</div>
-							</div>
-						)) as React.ReactNode
-					}
-
-					{/* Status Messages */}
-					{preflightMessage && (
-						<div className="card bg-orange-500 bg-opacity-10 border-orange-500 border-opacity-30">
-							<p className="text-sm text-orange-200">{preflightMessage}</p>
-						</div>
-					)}
-
-					{hash && !isSuccess && (
-						<div className="text-center text-sm ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}">
-							Transaction submitted. Waiting for confirmation...
-						</div>
-					)}
-
-					{writeError && (
-						<div className="card bg-red-500 bg-opacity-10 border-red-500 border-opacity-30">
-							<div className="text-center py-4">
-								<h3 className="text-lg text-red-300 mb-2">
-									Transaction Failed
-								</h3>
-								<p className="text-red-200 text-sm mb-4">
-									{writeError.message.split(".")[0] +
-										(writeError.message.includes(".") ? "." : "")}
-								</p>
-								{writeError.message.length > 100 && (
-									<details className="text-left text-xs text-red-300">
-										<summary className="cursor-pointer hover:text-red-200">
-											Show full error
-										</summary>
-										<div className="mt-2 p-3 bg-red-900/20 rounded border border-red-800/30 max-h-40 overflow-auto">
-											<p className="break-words">{writeError.message}</p>
-										</div>
-									</details>
-								)}
-							</div>
-						</div>
-					)}
-
-					{receiptError && (
-						<div className="card bg-red-500 bg-opacity-10 border-red-500 border-opacity-30">
-							<div className="text-center py-4">
-								<h3 className="text-lg text-red-300 mb-2">
-									Transaction Failed
-								</h3>
-								<p className="text-red-200 text-sm mb-4">
-									{receiptError.message.split(".")[0] +
-										(receiptError.message.includes(".") ? "." : "")}
-								</p>
-								{receiptError.message.length > 100 && (
-									<details className="text-left text-xs text-red-300">
-										<summary className="cursor-pointer hover:text-red-200">
-											Show full error
-										</summary>
-										<div className="mt-2 p-3 bg-red-900/20 rounded border border-red-800/30 max-h-40 overflow-auto">
-											<p className="break-words">{receiptError.message}</p>
-										</div>
-									</details>
-								)}
-							</div>
-						</div>
-					)}
-
-					{/* Loading and Error Messages */}
-					{tokenDataLoading && tokenId && (
-						<div className="text-center text-sm ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}">
-							Loading token data...
-						</div>
-					)}
-
-					{tokenDataError && tokenId && (
-						<div className="card bg-red-500 bg-opacity-10 border-red-500 border-opacity-30">
-							<div className="text-center py-6">
-								<svg
-									className="w-10 h-10 text-red-400 mx-auto mb-3"
-									fill="none"
-									stroke="currentColor"
-									viewBox="0 0 24 24"
-								>
-									<path
-										strokeLinecap="round"
-										strokeLinejoin="round"
-										strokeWidth={2}
-										d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-									/>
-								</svg>
-								<h3 className="text-lg text-red-300 mb-2">
-									Error Loading Token Data
-								</h3>
-								<p className="text-red-200 text-sm mb-4">
-									{tokenDataError?.message ||
-										"Failed to load token data from contract"}
-								</p>
-								<div className="space-y-2 text-sm text-red-300">
-									<p>
-										<strong>Possible reasons:</strong>
-									</p>
-									<ul className="text-left space-y-1 max-w-md mx-auto">
-										<li>• Token #{tokenId} doesn't exist in this collection</li>
-										<li>• Contract not deployed or wrong address</li>
-										<li>• Network connection issue</li>
-										<li>• Wrong collection address</li>
-									</ul>
-									</div>
-									<button
-										onClick={() => void refetchTokenReads()}
-										className="btn-ghost text-red-300 hover:text-red-200 mt-4"
-									>
-									Retry Loading
-								</button>
-							</div>
-						</div>
-					)}
-
-					{!tokenDataLoading && !tokenDataError && !tokenData && tokenId && (
-						<div className="card bg-yellow-500 bg-opacity-10 border-yellow-500 border-opacity-30">
-							<div className="text-center py-6">
-								<svg
-									className="w-10 h-10 text-yellow-400 mx-auto mb-3"
-									fill="none"
-									stroke="currentColor"
-									viewBox="0 0 24 24"
-								>
-									<path
-										strokeLinecap="round"
-										strokeLinejoin="round"
-										strokeWidth={2}
-										d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-									/>
-								</svg>
-								<h3 className="text-lg text-yellow-300 mb-2">
-									Token Not Found
-								</h3>
-								<p className="text-yellow-200 text-sm">
-									Token #{tokenId} was not found in this collection. Make sure
-									the token exists and you've entered the correct ID.
-								</p>
-							</div>
-						</div>
-					)}
-
-					{!tokenId && (
-						<div className="space-y-8">
-							{/* Preview of what will be available */}
-							<div className="card opacity-60">
-								<h3
-									className={`text-lg font-semibold ${
-										isDarkMode ? "text-zinc-100" : "text-zinc-900"
-									} mb-4`}
-								>
-									Update Metadata
-								</h3>
-								<p className="${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}">
-									Update name, description, and properties (available after
-									entering token ID)
-								</p>
-							</div>
-
-							<div className="card opacity-60">
-								<h3
-									className={`text-lg font-semibold ${
-										isDarkMode ? "text-zinc-100" : "text-zinc-900"
-									} mb-4`}
-								>
-									Display Mode
-								</h3>
-								<p className="${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}">
-									Switch between Image and Smart HTML modes
-								</p>
-							</div>
-
-							<div className="card opacity-60">
-								<h3
-									className={`text-lg font-semibold ${
-										isDarkMode ? "text-zinc-100" : "text-zinc-900"
-									} mb-4`}
-								>
-									Artwork URIs
-								</h3>
-								<p className="${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}">
-									Manage artist artwork URIs and selections
-								</p>
-							</div>
-
-							<div className="card opacity-60">
-								<h3
-									className={`text-lg font-semibold ${
-										isDarkMode ? "text-zinc-100" : "text-zinc-900"
-									} mb-4`}
-								>
-									Thumbnail Management
-								</h3>
-								<p className="${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}">
-									Update on-chain thumbnails or manage off-chain thumbnail URIs
-								</p>
-							</div>
-
-							<div className="card opacity-60">
-								<h3
-									className={`text-lg font-semibold ${
-										isDarkMode ? "text-zinc-100" : "text-zinc-900"
-									} mb-4`}
-								>
-									HTML Template Management
-								</h3>
-								<p className="${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}">
-									Upload custom HTML templates for interactive tokens
-								</p>
-							</div>
-
-							<div className="card opacity-60">
-								<h3
-									className={`text-lg font-semibold ${
-										isDarkMode ? "text-zinc-100" : "text-zinc-900"
-									} mb-4`}
-								>
-									Permission Management
-								</h3>
-								<p className="${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}">
-									Revoke artist permissions permanently (irreversible action)
-								</p>
-							</div>
-
-							<div className="card bg-blue-500 bg-opacity-10 border-blue-500 border-opacity-30">
-								<div className="text-center py-6">
-									<svg
-										className="w-10 h-10 text-blue-400 mx-auto mb-3"
-										fill="none"
-										stroke="currentColor"
-										viewBox="0 0 24 24"
-									>
-										<path
-											strokeLinecap="round"
-											strokeLinejoin="round"
-											strokeWidth={2}
-											d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-										/>
-									</svg>
-									<h3 className="text-lg text-blue-300 mb-2">
-										Enter Token ID to Enable Updates
-									</h3>
-									<p className="text-blue-200 text-sm">
-										All sections above will become interactive once you enter a
-										valid token ID.
-									</p>
-								</div>
-							</div>
-						</div>
-					)}
+					<TxFeedback state={tx.state} action="display-mode" />
 				</div>
 			</div>
+		</Section>
+	);
+}
 
-			<Footer isDarkMode={isDarkMode} />
-		</PageBackground>
+function Metadata({ creator, tokenId, token, tx }: EditorProps) {
+	const parsed = useMemo(() => parseMetadata(token.metadata), [token.metadata]);
+	const [name, setName] = useState(parsed.name);
+	const [description, setDescription] = useState(parsed.description);
+	const [attributes, setAttributes] = useState<Attribute[]>(parsed.attributes);
+
+	useEffect(() => {
+		setName(parsed.name);
+		setDescription(parsed.description);
+		setAttributes(parsed.attributes);
+	}, [parsed]);
+
+	// Fields this form doesn't show (and attribute details like display_type) ride along unchanged.
+	const original = useMemo(
+		() => buildMetadataFields(parsed.name, parsed.description, parsed.attributes, parsed.rest),
+		[parsed]
+	);
+	const fields = buildMetadataFields(name, description, attributes, parsed.rest);
+
+	return (
+		<Section title="Metadata" description="Anything else in the token's metadata that isn't shown here is kept as it is.">
+			<form
+				className="flex flex-col gap-6"
+				onSubmit={(e) => {
+					e.preventDefault();
+					void tx.run("metadata", {
+						abi: muriAbi,
+						address: MURI_ADDRESS,
+						functionName: "updateMetadata",
+						args: [creator, tokenId, fields],
+					});
+				}}
+			>
+				<Field label="Title" htmlFor="update-name">
+					<Input id="update-name" value={name} onChange={(e) => setName(e.target.value)} />
+				</Field>
+				<Field label="Description" htmlFor="update-description" optional>
+					<Textarea id="update-description" rows={4} value={description} onChange={(e) => setDescription(e.target.value)} />
+				</Field>
+				<AttributesEditor attributes={attributes} onChange={setAttributes} />
+				<div>
+					<Button type="submit" variant="secondary" disabled={!fields || fields === original || tx.busy}>
+						Save metadata
+					</Button>
+				</div>
+				<TxFeedback state={tx.state} action="metadata" />
+			</form>
+		</Section>
+	);
+}
+
+function Thumbnail({ creator, tokenId, token, tx, chainId }: EditorProps) {
+	const [prepared, setPrepared] = useState<PreparedThumbnail | null>(null);
+	const [error, setError] = useState<string | null>(null);
+	const [uris, setUris] = useState<string[]>([...token.thumbnailUris]);
+	const [selected, setSelected] = useState(token.selectedThumbnailIndex);
+	const [newUri, setNewUri] = useState("");
+	const newUriProblem = newUri.trim() ? uriProblem(newUri.trim()) : null;
+	const [step, setStep] = useState<string | null>(null);
+	const [stepError, setStepError] = useState<string | null>(null);
+	// Data contracts already deployed, by network and chunk, so a retry doesn't pay for them twice.
+	const deployed = useRef(new Map<string, Address>());
+
+	// updateThumbnail overwrites the chunk list it writes with the one passed in, so passing the
+	// chunks themselves leaves the token with no thumbnail. Store each chunk in its own data
+	// contract first, then hand the contract their addresses (plus the 1-byte placeholder chunk
+	// it insists on, which the same overwrite discards).
+	const saveOnChain = async () => {
+		if (!prepared || step) return;
+		if (!(await requireTerms())) return;
+		setStepError(null);
+		try {
+			const pointers: Address[] = [];
+			for (const [i, chunk] of prepared.chunks.entries()) {
+				const key = `${chainId}:${chunk}`;
+				let pointer = deployed.current.get(key);
+				if (!pointer) {
+					setStep(`Storing part ${i + 1} of ${prepared.chunks.length}. Confirm in your wallet, then wait for it to land.`);
+					pointer = await deployPointer(chainId, chunk);
+					deployed.current.set(key, pointer);
+				}
+				pointers.push(pointer);
+			}
+			setStep(null);
+			await tx.run("thumbnail", {
+				abi: muriAbi,
+				address: MURI_ADDRESS,
+				functionName: "updateThumbnail",
+				args: [
+					creator,
+					tokenId,
+					{
+						kind: 0,
+						onChain: { mimeType: prepared.mimeType, chunks: pointers, zipped: true },
+						offChain: { uris: [], selectedUriIndex: 0n },
+					},
+					["0x00"],
+				],
+			});
+		} catch (e) {
+			setStep(null);
+			setStepError(describeContractError(e));
+		}
+	};
+
+	useEffect(() => {
+		setUris([...token.thumbnailUris]);
+		setSelected(token.selectedThumbnailIndex);
+	}, [token.thumbnailUris, token.selectedThumbnailIndex]);
+
+	const changed =
+		uris.join("\n") !== token.thumbnailUris.join("\n") || selected !== token.selectedThumbnailIndex;
+
+	return (
+		<Section
+			title="Thumbnail"
+			description={token.isOnChainThumbnail ? "Stored on-chain." : "Loaded from URIs."}
+		>
+			{token.isOnChainThumbnail ? (
+				<div className="flex flex-col gap-4">
+					<Dropzone
+						compact
+						accept={getThumbnailAcceptAttribute()}
+						title={prepared ? prepared.file.name : "Drop a new thumbnail"}
+						hint={
+							prepared
+								? `${formatBytes(prepared.storedBytes)} after compression · ${prepared.chunks.length} chunk(s)`
+								: "Image, 60 KB max."
+						}
+						error={error}
+						onFile={async (f) => {
+							setError(null);
+							if (!isThumbnailSupported(f)) return setError(getUnsupportedThumbnailMessage(f));
+							try {
+								setPrepared(await prepareOnChainThumbnail(f));
+							} catch (e) {
+								setError(e instanceof Error ? e.message : "Couldn't read the image.");
+							}
+						}}
+					/>
+					{prepared && (
+						<p className="text-[13px] text-muted">
+							Saving takes {prepared.chunks.length + 1} transactions: {prepared.chunks.length === 1 ? "one" : prepared.chunks.length} to
+							store the image data, then one to point the token at it.
+						</p>
+					)}
+					<div>
+						<Button
+							variant="secondary"
+							disabled={!prepared || tx.busy || Boolean(step)}
+							loading={Boolean(step)}
+							onClick={() => void saveOnChain()}
+						>
+							Save thumbnail
+						</Button>
+					</div>
+					{step && (
+						<p className="flex items-center gap-3 text-[13px] text-muted" role="status">
+							<Loader />
+							{step}
+						</p>
+					)}
+					{stepError && (
+						<Notice tone="signal" title="Failed">
+							{stepError} Parts already stored are kept, so trying again only sends what's missing.
+						</Notice>
+					)}
+				</div>
+			) : (
+				<div className="flex flex-col gap-5">
+					{uris.length > 0 ? (
+						<ol className="flex flex-col border-t border-line">
+							{uris.map((uri, i) => (
+								<li key={`${i}-${uri}`} className="flex items-start gap-4 py-3 border-b border-line">
+									<span className="micro text-faint tabular-nums pt-[3px]">{String(i).padStart(2, "0")}</span>
+									<span className="flex-1 min-w-0 font-mono text-[12px] break-all">{uri}</span>
+									{selected === i ? (
+										<span className="micro text-foreground">Selected</span>
+									) : (
+										<button type="button" onClick={() => setSelected(i)} className="micro text-muted hover:text-foreground">
+											Select
+										</button>
+									)}
+									<button
+										type="button"
+										onClick={() => {
+											setUris(uris.filter((_, j) => j !== i));
+											setSelected((s) => (s >= i && s > 0 ? s - 1 : s));
+										}}
+										className="micro text-muted hover:text-signal"
+									>
+										Remove
+									</button>
+								</li>
+							))}
+						</ol>
+					) : (
+						<p className="text-[13px] text-muted">No thumbnail URIs.</p>
+					)}
+					<div className="flex flex-col sm:flex-row gap-3">
+						<Input
+							aria-label="New thumbnail URI"
+							className="font-mono text-[13px] flex-1"
+							placeholder="https://…"
+							value={newUri}
+							onChange={(e) => setNewUri(e.target.value)}
+							spellCheck={false}
+						/>
+						<Button
+							variant="ghost"
+							disabled={!newUri.trim() || Boolean(newUriProblem)}
+							onClick={() => {
+								setUris([...uris, newUri.trim()]);
+								setNewUri("");
+							}}
+						>
+							+ Add to list
+						</Button>
+					</div>
+					{newUriProblem && <p className="text-[13px] text-signal -mt-2">{newUriProblem}</p>}
+					<div>
+						<Button
+							variant="secondary"
+							disabled={!changed || uris.length === 0 || tx.busy}
+							onClick={() =>
+								void tx.run("thumbnail", {
+									abi: muriAbi,
+									address: MURI_ADDRESS,
+									functionName: "updateThumbnail",
+									args: [
+										creator,
+										tokenId,
+										{
+											kind: 1,
+											onChain: { mimeType: "", chunks: [], zipped: false },
+											offChain: { uris, selectedUriIndex: BigInt(Math.min(selected, uris.length - 1)) },
+										},
+										[],
+									],
+								})
+							}
+						>
+							Save thumbnail URIs
+						</Button>
+					</div>
+				</div>
+			)}
+			<div className="pt-4">
+				<TxFeedback state={tx.state} action="thumbnail" />
+			</div>
+		</Section>
+	);
+}
+
+function Template({ creator, tokenId, token, tx }: EditorProps) {
+	const [prepared, setPrepared] = useState<PreparedTemplate | null>(null);
+	const [error, setError] = useState<string | null>(null);
+
+	return (
+		<Section title="Advanced" panel={false}>
+			<Disclosure
+				title="HTML template"
+				summary={
+					token.hasCustomTemplate
+						? "This token uses its own Smart HTML page."
+						: "This token uses the shared default Smart HTML page."
+				}
+			>
+			<div className="flex flex-col gap-4">
+				<p className="text-[13px] text-muted leading-relaxed max-w-[60ch]">
+					The page Smart HTML mode renders: it tries each URI and checks the file hash. Replace it only if
+					you need custom behaviour.
+				</p>
+				<Dropzone
+					compact
+					accept=".html,.htm"
+					title={prepared ? prepared.file.name : "Drop a new template"}
+					hint={
+						prepared
+							? `${formatBytes(prepared.bytes)} · ${prepared.chunks.length} chunk(s)`
+							: "Must contain {{FILE_URIS}} and {{FILE_HASH}}. Keep them out of <script>: the default template puts them in a closing <plaintext> element so no URI can break the page."
+					}
+					error={error}
+					onFile={async (f) => {
+						setError(null);
+						try {
+							setPrepared(await prepareHtmlTemplate(f));
+						} catch (e) {
+							setError(e instanceof Error ? e.message : "Couldn't read the template.");
+						}
+					}}
+				/>
+				<div>
+					<Button
+						variant="secondary"
+						disabled={!prepared || tx.busy}
+						onClick={() =>
+							prepared &&
+							void tx.run("template", {
+								abi: muriAbi,
+								address: MURI_ADDRESS,
+								functionName: "updateHtmlTemplate",
+								args: [creator, tokenId, prepared.chunks, false],
+							})
+						}
+					>
+						Save template
+					</Button>
+				</div>
+				<TxFeedback state={tx.state} action="template" />
+			</div>
+			</Disclosure>
+		</Section>
+	);
+}
+
+function Permissions({ creator, tokenId, token, tx }: EditorProps) {
+	const [revoke, setRevoke] = useState<Set<PermissionKey>>(new Set());
+	const [confirmAll, setConfirmAll] = useState(false);
+	const granted = ARTIST_PERMISSIONS.filter((p) => hasPermission(token.flags, p.key));
+
+	useEffect(() => setRevoke(new Set()), [token.flags]);
+
+	return (
+		<Section
+			title="Permissions"
+			description="Revoking removes you as a point of failure. MURI has no way to grant a permission back. As a collection admin you keep low-level control of the collection itself; the Terms explain what that means."
+		>
+			<div className="flex flex-col gap-8">
+				{granted.length === 0 ? (
+					<p className="text-muted">All artist permissions are revoked. This token is fixed for the artist.</p>
+				) : (
+					<>
+						<div className="flex flex-col gap-2">
+							<span className="micro text-muted mb-1">Revoke selected</span>
+							{ARTIST_PERMISSIONS.map((p) => {
+								const has = hasPermission(token.flags, p.key);
+								return (
+									<Choice
+										key={p.key}
+										compact
+										type="checkbox"
+										disabled={!has}
+										checked={revoke.has(p.key)}
+										onChange={(on) =>
+											setRevoke((prev) => {
+												const next = new Set(prev);
+												if (on) next.add(p.key);
+												else next.delete(p.key);
+												return next;
+											})
+										}
+										title={p.label}
+										meta={has ? undefined : "Revoked"}
+									/>
+								);
+							})}
+						</div>
+						<div className="flex flex-col gap-3">
+							<div>
+								<Button
+									variant="danger"
+									disabled={revoke.size === 0 || tx.busy}
+									onClick={() =>
+										void tx.run("revoke", {
+											abi: muriAbi,
+											address: MURI_ADDRESS,
+											functionName: "revokeArtistPermissions",
+											args: [
+												creator,
+												tokenId,
+												revoke.has("artistUpdateThumb"),
+												revoke.has("artistUpdateMeta"),
+												revoke.has("artistChooseUris"),
+												revoke.has("artistAddRemove"),
+												revoke.has("artistChooseThumb"),
+												revoke.has("artistUpdateMode"),
+												revoke.has("artistUpdateTemplate"),
+											],
+										})
+									}
+								>
+									Revoke {revoke.size || ""} permanently
+								</Button>
+							</div>
+							<TxFeedback state={tx.state} action="revoke" successMessage="Permissions revoked." />
+						</div>
+
+						<Rule label="Revoke everything" />
+						<div className="flex flex-col gap-4">
+							<p className="text-[13px] text-muted leading-relaxed max-w-[60ch]">
+								Removes every artist permission at once. Owners keep whatever permissions they have, so
+								they can still add backups if you allowed it.
+							</p>
+							<Choice
+								compact
+								type="checkbox"
+								checked={confirmAll}
+								onChange={setConfirmAll}
+								title="I understand this is permanent."
+							/>
+							<div>
+								<Button
+									variant="danger"
+									disabled={!confirmAll || tx.busy}
+									onClick={() =>
+										void tx.run("revoke-all", {
+											abi: muriAbi,
+											address: MURI_ADDRESS,
+											functionName: "revokeAllArtistPermissions",
+											args: [creator, tokenId],
+										})
+									}
+								>
+									Revoke all artist permissions
+								</Button>
+							</div>
+							<TxFeedback state={tx.state} action="revoke-all" successMessage="All artist permissions revoked." />
+						</div>
+					</>
+				)}
+			</div>
+		</Section>
+	);
+}
+
+export default function Update() {
+	const [params, setParams] = useSearchParams();
+	const creator = (params.get("creator") ?? "") as Address;
+	const type = params.get("type") ?? "";
+	const [tokenInput, setTokenInput] = useState(params.get("token") ?? "");
+	const [browsing, setBrowsing] = useState(false);
+	const collectionType = type === "ERC721" || type === "ERC1155" ? type : undefined;
+	const { isConnected } = useConnection();
+	const chainId = usePageChain();
+	const isAdmin = useIsCollectionAdmin(isAddress(creator) ? creator : undefined, chainId);
+	const { tokenId, isValidId, token, notFound, isLoading, error, refetch } = useMuriToken(
+		isAddress(creator) ? creator : undefined,
+		tokenInput,
+		chainId
+	);
+	const tx = useMuriTransaction(() => void refetch(), chainId);
+
+	// Keep the token in the URL so the page can be shared and reloaded.
+	useEffect(() => {
+		const next = new URLSearchParams(params);
+		if (isValidId) next.set("token", tokenInput.trim());
+		else next.delete("token");
+		if (next.toString() !== params.toString()) setParams(next, { replace: true });
+	}, [tokenInput, isValidId, params, setParams]);
+
+	if (!isAddress(creator)) {
+		return (
+			<Layout>
+				<PageTitle title="Pick a collection first">
+					<ButtonLink to="/collections?role=creator">Choose a collection →</ButtonLink>
+				</PageTitle>
+			</Layout>
+		);
+	}
+
+	const meta = token ? parseMetadataFields(token.metadata) : undefined;
+	// The contract treats a non-admin as the token's owner, so artist edits from that wallet would
+	// land on the owners' side of the token. Only show the editors to admins (or before connecting).
+	const notAdmin = isConnected && isAdmin === false;
+	const editorProps =
+		token && tokenId !== undefined && !notAdmin ? { creator, tokenId, token, tx, chainId } : undefined;
+	const locked = token ? ARTIST_PERMISSIONS.filter((p) => !hasPermission(token.flags, p.key)) : [];
+
+	return (
+		<Layout>
+			<div className="flex flex-col gap-14">
+				<PageTitle
+					back={
+						<Link to="/collections?role=creator" className="hover:text-foreground transition-colors">
+							← {type || "Collection"} · {shortAddress(creator)} · {chainName(chainId)}
+						</Link>
+					}
+					title={meta?.name ? meta.name : "Manage a token"}
+				>
+					Change what the artwork points to, how it displays, and who can change it next.
+				</PageTitle>
+
+				<div className="flex flex-col gap-6 md:gap-8">
+					<Section title="Token">
+						<div className="flex flex-col gap-5">
+							<div className="grid gap-5 sm:grid-cols-[10rem_minmax(0,1fr)] sm:items-end">
+								<Field label="Token ID" htmlFor="update-token">
+									<Input
+										id="update-token"
+										inputMode="numeric"
+										placeholder="1"
+										value={tokenInput}
+										onChange={(e) => setTokenInput(e.target.value.replace(/[^\d]/g, ""))}
+										autoFocus={!tokenInput}
+									/>
+								</Field>
+								<div className="sm:pb-3">
+									{isLoading ? (
+										<LoadingLine label="Reading token" />
+									) : notFound ? (
+										<StatusLabel tone="signal">Not a MURI token in this collection</StatusLabel>
+									) : token ? (
+										<StatusLabel tone="up">
+											{token.artistUris.length + token.collectorUris.length} URIs ·{" "}
+											{token.displayMode === 1 ? "Smart HTML" : "Direct"}
+										</StatusLabel>
+									) : null}
+								</div>
+							</div>
+							{error && (
+								<Notice
+									tone="signal"
+									title="Couldn't read the token"
+									action={
+										<Button size="sm" variant="ghost" onClick={() => void refetch()}>
+											Retry →
+										</Button>
+									}
+								>
+									{error.message.split("\n")[0]}
+								</Notice>
+							)}
+							{collectionType && (!token || browsing ? (
+								<div className="flex flex-col gap-4 border-t border-line pt-5">
+									<span className="micro text-muted">In this collection</span>
+									<TokenBrowser
+										creator={creator}
+										type={collectionType}
+										chainId={chainId}
+										selectedId={isValidId ? tokenInput.trim() : undefined}
+										onSelect={(id) => {
+											setTokenInput(id);
+											setBrowsing(false);
+										}}
+									/>
+								</div>
+							) : (
+								<div>
+									<Button size="sm" variant="ghost" onClick={() => setBrowsing(true)}>
+										Choose another token →
+									</Button>
+								</div>
+							))}
+							{token && !isConnected && (
+								<div className="flex flex-col sm:flex-row sm:items-center gap-4 justify-between border-t border-line pt-5">
+									<p className="text-[13px] text-muted">Connect the collection admin wallet to make changes.</p>
+									<ConnectWallet />
+								</div>
+							)}
+							{token && notAdmin && (
+								<Notice
+									tone="caution"
+									title="This wallet isn't an admin of the collection"
+									action={
+										<ButtonLink size="sm" variant="ghost" to={`/collector-zone?${params}`}>
+											Open in Preserve →
+										</ButtonLink>
+									}
+								>
+									The contract treats it as an owner of the token, so changes from here would apply to the
+									owners' side. Connect an admin wallet to manage the artist's side, or manage your own copies
+									from Preserve.
+								</Notice>
+							)}
+							<NetworkNotice chainId={chainId} />
+							{token && locked.length > 0 && (
+								<p className="text-[13px] text-muted border-t border-line pt-5">
+									Revoked: {locked.map((p) => p.label.toLowerCase()).join(", ")}.
+								</p>
+							)}
+						</div>
+					</Section>
+
+					{editorProps &&
+						token &&
+						[
+							{ key: "uris", Editor: ArtworkUris, show: true },
+							{ key: "mode", Editor: DisplayMode, show: hasPermission(token.flags, "artistUpdateMode") },
+							{ key: "meta", Editor: Metadata, show: hasPermission(token.flags, "artistUpdateMeta") },
+							{ key: "thumb", Editor: Thumbnail, show: hasPermission(token.flags, "artistUpdateThumb") },
+							{ key: "perms", Editor: Permissions, show: true },
+							{ key: "template", Editor: Template, show: hasPermission(token.flags, "artistUpdateTemplate") },
+						]
+							.filter((e) => e.show)
+							// Keyed by token too, so nothing half-edited carries over to another token.
+							.map(({ key, Editor }) => <Editor key={`${key}-${tokenId}`} {...editorProps} />)}
+				</div>
+			</div>
+		</Layout>
 	);
 }

@@ -22,4 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+# Environment files (Vite also loads .env.production, .env.development and *.local).
 .env
+.env.*
+!.env.example

@@ -1,12 +1,9 @@
-// Central UI component exports
-// Makes it easy to import multiple components: import { Button, Card, Input } from '@/components/ui'
-
-export * from './Button';
-export * from './Card';
-export * from './Input';
-export * from './Alert';
-export * from './Badge';
-export * from './Spinner';
-export * from './Tooltip';
-export * from './Container';
-
+export * from "./Button";
+export * from "./buttonClass";
+export * from "./Choice";
+export * from "./Dropzone";
+export * from "./Field";
+export * from "./Loader";
+export * from "./Notice";
+export * from "./Section";
+export * from "./Disclosure";

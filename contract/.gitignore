@@ -5,18 +5,19 @@ node_modules
 out
 
 # files
+.env
+.env.*
+!.env.example
 *.env
 *.log
 .DS_Store
 .pnp.*
 lcov.info
 package-lock.json
-pnpm-lock.yaml
 yarn.lock
 
-# broadcasts
-!broadcast
-broadcast/*
+# broadcasts: commit the receipts of real transactions, but not dry runs or local chains
+broadcast/**/dry-run/
 broadcast/*/31337/
 
 test/TemporaryTests.t.sol

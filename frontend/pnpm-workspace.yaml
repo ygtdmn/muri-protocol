@@ -1,0 +1,14 @@
+# Security floors for transitive dependencies (from `pnpm audit`), each kept within its major
+# so a future install can't jump to an incompatible release. Mostly wallet SDKs (WalletConnect's
+# Reown stack, Base Account's Solana deps) and ESLint's tooling.
+overrides:
+  axios@<1.20.0: ^1.20.0
+  form-data@>=4.0.0 <4.0.6: ^4.0.6
+  ws@>=7.0.0 <7.5.11: ^7.5.11
+  ws@>=8.0.0 <8.21.0: ^8.21.0
+  uuid@<11.1.1: ^11.1.1
+  yaml@>=2.0.0 <2.8.3: ^2.8.3
+  brace-expansion@>=3.0.0 <5.0.12: ^5.0.12
+  browserslist@<4.28.7: ^4.28.7
+  baseline-browser-mapping@>=2.0.0 <2.11.0: ^2.11.0
+  '@babel/core@<7.29.6': ^7.29.6

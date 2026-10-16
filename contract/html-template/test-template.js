@@ -9,20 +9,21 @@ const config = {
   fileUris: [
     "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Duck/glTF-Embedded/Duck.gltf",
   ],
-  fileHash: "b69c34f30ec2803a37c6546c890a202f4db618745a3fefa3e5ac360bff211931", // SHA256 of test file
+  fileHash: "0xb69c34f30ec2803a37c6546c890a202f4db618745a3fefa3e5ac360bff211931", // SHA256 of test file
 };
 
-// Read template
+// Read template (--minified uses the version stored on chain)
 function loadTemplate() {
-  const templatePath = path.join(__dirname, "template.html");
-  return fs.readFileSync(templatePath, "utf8");
+  const file = process.argv.includes("--minified") ? "minified.html" : "template.html";
+  return fs.readFileSync(path.join(__dirname, file), "utf8");
 }
 
-// Replace placeholders
+// Replace placeholders the way MURIProtocol.renderRawHTML does: every occurrence, URIs first, then the
+// hash. The URI list is each URI in double quotes joined with commas, with no escaping.
+// split/join rather than String.replace, which would treat `$&` etc. in a URI as patterns.
 function fillTemplate(template, config) {
-  return template
-    .replace(/\{\{FILE_URIS\}\}/g, config.fileUris.map((uri) => `"${uri}"`).join(", "))
-    .replace(/\{\{FILE_HASH\}\}/g, config.fileHash);
+  const uriList = config.fileUris.map((uri) => `"${uri}"`).join(",");
+  return template.split("{{FILE_URIS}}").join(uriList).split("{{FILE_HASH}}").join(config.fileHash);
 }
 
 // Create test server
@@ -50,7 +51,7 @@ function createServer(filledTemplate) {
 
 // Save to file option
 function saveToFile(filledTemplate, filename = "test-output.html") {
-  const outputPath = path.join(__dirname, filename);
+  const outputPath = path.resolve(__dirname, filename);
   fs.writeFileSync(outputPath, filledTemplate, "utf8");
   console.log(`💾 Template saved to: ${outputPath}`);
   console.log("📂 Open this file in your browser to test");
@@ -94,11 +95,12 @@ Usage:
   pnpm test:template              # Start local server (default)
   pnpm test:template --save       # Save filled template to file
   pnpm test:template --save --file=custom.html  # Save with custom filename
+  pnpm test:template --minified   # Use minified.html (what is stored on chain) instead of template.html
 
 Configuration:
   Edit the 'config' object in this file to change test parameters:
   - fileUris: Array of media URLs to test
-  - fileHash: Expected SHA256 hash (without 0x prefix)
+  - fileHash: Expected SHA256 hash (0x prefix optional)
 
 Examples:
   pnpm test:template

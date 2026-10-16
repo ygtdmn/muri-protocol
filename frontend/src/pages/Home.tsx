@@ -1,820 +1,160 @@
-import { Link } from "react-router-dom";
-import { Shield, Upload, Link2, Users, Zap, Heart, HelpCircle, Sparkles } from "lucide-react";
-import { useState } from "react";
-import Header from "../components/Header";
-import { useTheme } from "../hooks/useTheme";
-import Footer from "../components/Footer";
-import PageBackground from "../components/PageBackground";
+import Layout from "../components/Layout";
+import ResolvingHero from "../components/art/ResolvingHero";
+import TokenAnatomy from "../components/art/TokenAnatomy";
+import PermissionBits from "../components/art/PermissionBits";
+import StorageCost from "../components/art/StorageCost";
+import { Section } from "../components/ui";
+import { MURI_ADDRESS, MURI_EXTENSION_ADDRESS } from "../lib/muri";
+import { OFF_CHAIN_ART } from "../lib/offChainArt";
+
+const questions = [
+	{
+		q: "What problem does this solve?",
+		a: "Most NFTs point to a single link. When that server goes down or that pin expires, the token shows a broken image. MURI keeps several links per token and moves to the next one when a link fails.",
+	},
+	{
+		q: "Why not store the whole thing on-chain?",
+		a: "If you can afford it, do that. Fully on-chain is the most durable option there is, with nothing to keep online. But on-chain storage is paid by the byte, so large images, video, audio or 3D can cost thousands of dollars to store. MURI is for those works: the metadata, the HTML page and an optional thumbnail stay on-chain, and only the file itself lives off-chain, in as many places as you want.",
+	},
+	{
+		q: "What is Smart HTML mode?",
+		a: "The token's animation_url is an HTML page generated on-chain. It loads each URI in order, checks the file against the stored SHA-256, and shows the first copy that matches. Direct mode skips the page and serves one chosen URI.",
+	},
+	{
+		q: "Does MURI charge a fee?",
+		a: "No. MURI takes nothing, on mints, updates or uploads. You pay network gas for your own transactions, and if you choose to upload through the site, the storage provider's price goes straight to ar.io (Arweave) or Pinata (IPFS). Relay's fee applies only if you swap or bridge into USDC.",
+	},
+	{
+		q: "Do I have to upload through the site?",
+		a: "No. Uploading here is a convenience. You can host the file anywhere, on your own server, S3, GitHub, the Internet Archive or a pinning service you already use, and paste the links. MURI only stores the links and the file's hash.",
+	},
+	{
+		q: "How does paying for storage work?",
+		a: "Uploads use x402, an HTTP payment standard. Your wallet signs one USDC authorization on Base for the quoted price, paid directly to the storage provider, and the upload goes through. No account, no API key, no approval transaction.",
+	},
+	{
+		q: "Can collectors add links?",
+		a: "If the artist allows it, the owner of a token can add their own backup URIs. Smart HTML tries them after the artist's, so a collector can keep a piece alive even if the artist stops maintaining it.",
+	},
+	{
+		q: "What can I connect?",
+		a: "Manifold Creator Core contracts (ERC-721 and ERC-1155) on Ethereum, Base and Sepolia. Other contracts can integrate directly by implementing IMURIProtocolCreator.",
+	},
+];
 
 export default function Home() {
-	const [openFaq, setOpenFaq] = useState<Record<string, boolean>>({
-		what: false,
-		why: false,
-		how: false,
-		who: false,
-	});
-
-	const { isDarkMode, toggleTheme } = useTheme();
-
-	const toggleFaq = (section: string) => {
-		setOpenFaq((prev) => ({
-			...prev,
-			[section]: !prev[section],
-		}));
-	};
 	return (
-		<PageBackground
-			isDarkMode={isDarkMode}
-			className={`scroll-smooth min-h-screen flex flex-col relative ${
-				isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"
-			}`}
-		>
-			<Header
-				isDarkMode={isDarkMode}
-				toggleTheme={toggleTheme}
-				hideConnectButton={true}
-			/>
-
-			{/* Hero Section */}
-			<div className="flex-grow">
-				<div className="max-w-6xl mx-auto px-4 md:px-6 lg:px-8">
-					{/* Hero */}
-					<div className="pt-16 pb-12 md:pt-24 md:pb-16 text-center relative">
-
-						<div className="max-w-4xl mx-auto relative z-10">
-							<h1
-								className={`
-									text-4xl md:text-5xl lg:text-6xl 
-									font-bold tracking-tight 
-									mb-6 leading-tight
-									${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
-								`}
-							>
-								Make Your Digital Art{" "}
-								<span className={isDarkMode ? "text-primary-dark" : "text-primary"}>
-									More Resilient
-								</span>
-							</h1>
-
-							<p
-								className={`
-									text-lg md:text-xl 
-									mb-10 leading-relaxed max-w-2xl mx-auto
-									${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
-								`}
-							>
-								Store your NFTs across multiple platforms. If one fails, your art
-								automatically falls back to another. <strong>Simple, secure, resilient.</strong>
-							</p>
-
-							<div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-								<Link
-									to="/collections"
-									className={`group px-10 py-5 rounded-2xl text-lg font-bold text-white shadow-strong transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-4 focus:ring-primary/30 ${
-										isDarkMode ? "bg-primary-dark hover:bg-primary-dark-hover" : "bg-primary hover:bg-primary-hover"
-									}`}
-								>
-									<span className="flex items-center gap-2">
-										Get Started
-										<Sparkles className="w-5 h-5 group-hover:rotate-12 transition-transform" />
-									</span>
-								</Link>
-								
-								<a
-									href="#how-it-works"
-									className={`
-										px-8 py-4 rounded-xl text-base font-semibold
-										border-2
-										transition-all duration-200
-										${
-											isDarkMode
-												? "border-border-dark text-text-primary-dark hover:bg-surface-hover-dark"
-												: "border-border-light text-text-primary-light hover:bg-surface-hover-light"
-										}
-									`}
-								>
-									Learn How It Works →
-								</a>
-							</div>
-						</div>
-					</div>
-
-					{/* How It Works */}
-					<section id="how-it-works" className="py-16 scroll-mt-24">
-						<div className="text-center mb-12">
-							<h2
-								className={`
-									text-3xl md:text-4xl font-bold mb-4
-									${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
-								`}
-							>
-								How It Works
-							</h2>
-							<p
-								className={`
-									text-lg max-w-2xl mx-auto
-									${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
-								`}
-							>
-								Three simple steps to protect your digital art
-							</p>
-						</div>
-
-						<div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-							{/* Step 1 */}
-							<div
-								className={`
-									text-center p-8 rounded-xl
-									${
-										isDarkMode
-											? "bg-surface-dark border border-border-dark"
-											: "bg-surface-light border border-border-light shadow-soft"
-									}
-								`}
-							>
-								<div
-									className={`
-										w-16 h-16 mx-auto mb-6 rounded-xl
-										flex items-center justify-center
-										${
-											isDarkMode
-												? "bg-primary-dark-subtle"
-												: "bg-primary-subtle"
-										}
-									`}
-								>
-									<Upload
-										className={`w-8 h-8 ${isDarkMode ? "text-primary-dark" : "text-primary"}`}
-									/>
-								</div>
-								<div className="mb-3 inline-block px-3 py-1 rounded-full bg-primary/10 dark:bg-primary-dark/10 text-primary dark:text-primary-dark text-sm font-semibold">
-									Step 1
-								</div>
-								<h3
-									className={`
-										text-xl font-semibold mb-3
-										${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
-									`}
-								>
-									Upload Your Art
-								</h3>
-								<p
-									className={`
-										text-sm leading-relaxed
-										${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
-									`}
-								>
-									Upload your artwork and MURI will calculate a secure hash to verify
-									authenticity
-								</p>
-							</div>
-
-							{/* Step 2 */}
-							<div
-								className={`
-									text-center p-8 rounded-xl
-									${
-										isDarkMode
-											? "bg-surface-dark border border-border-dark"
-											: "bg-surface-light border border-border-light shadow-soft"
-									}
-								`}
-							>
-								<div
-									className={`
-										w-16 h-16 mx-auto mb-6 rounded-xl
-										flex items-center justify-center
-										${
-											isDarkMode
-												? "bg-secondary-dark-subtle"
-												: "bg-secondary-subtle"
-										}
-									`}
-								>
-									<Link2
-										className={`w-8 h-8 ${isDarkMode ? "text-secondary-dark" : "text-secondary"}`}
-									/>
-								</div>
-								<div className="mb-3 inline-block px-3 py-1 rounded-full bg-secondary/10 dark:bg-secondary-dark/10 text-secondary dark:text-secondary-dark text-sm font-semibold">
-									Step 2
-								</div>
-								<h3
-									className={`
-										text-xl font-semibold mb-3
-										${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
-									`}
-								>
-									Add Backup Links
-								</h3>
-								<p
-									className={`
-										text-sm leading-relaxed
-										${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
-									`}
-								>
-									Upload to IPFS, Arweave, or any storage provider. More backups mean more
-									resilience
-								</p>
-							</div>
-
-							{/* Step 3 */}
-							<div
-								className={`
-									text-center p-8 rounded-xl
-									${
-										isDarkMode
-											? "bg-surface-dark border border-border-dark"
-											: "bg-surface-light border border-border-light shadow-soft"
-									}
-								`}
-							>
-								<div
-									className={`
-										w-16 h-16 mx-auto mb-6 rounded-xl
-										flex items-center justify-center
-										${
-											isDarkMode
-												? "bg-success-dark-subtle"
-												: "bg-success-subtle"
-										}
-									`}
-								>
-									<Shield
-										className={`w-8 h-8 ${isDarkMode ? "text-success-dark" : "text-success"}`}
-									/>
-								</div>
-								<div className="mb-3 inline-block px-3 py-1 rounded-full bg-success/10 dark:bg-success-dark/10 text-success dark:text-success-dark text-sm font-semibold">
-									Step 3
-								</div>
-								<h3
-									className={`
-										text-xl font-semibold mb-3
-										${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
-									`}
-								>
-									Mint with Confidence
-								</h3>
-								<p
-									className={`
-										text-sm leading-relaxed
-										${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
-									`}
-								>
-									Your NFT automatically uses the first working link. No manual
-									intervention needed
-								</p>
-							</div>
-						</div>
-					</section>
-
-					{/* Features Grid */}
-					<section className="py-16">
-						<div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-							<div
-								className={`
-									p-6 rounded-xl
-									${
-										isDarkMode
-											? "bg-surface-dark border border-border-dark"
-											: "bg-surface-light border border-border-light shadow-soft"
-									}
-								`}
-							>
-								<div className="flex items-start gap-4">
-									<div
-										className={`
-											p-2 rounded-lg
-											${isDarkMode ? "bg-primary-dark-subtle" : "bg-primary-subtle"}
-										`}
-									>
-										<Shield className={`w-5 h-5 ${isDarkMode ? "text-primary-dark" : "text-primary"}`} />
-									</div>
-									<div>
-										<h3
-											className={`
-												font-semibold mb-2
-												${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
-											`}
-										>
-											On-Chain Metadata
-										</h3>
-										<p
-											className={`
-												text-sm leading-relaxed
-												${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
-											`}
-										>
-											Your NFT details stored directly on the blockchain, not on a
-											server that could go down
-										</p>
+		<Layout hero={<ResolvingHero />}>
+			<div className="flex flex-col gap-20 md:gap-28">
+				<div className="flex flex-col gap-6 md:gap-8">
+					<Section
+						id="off-chain-art"
+						title="Off-Chain Art"
+						description={`${OFF_CHAIN_ART.date}. ${OFF_CHAIN_ART.collection} #${OFF_CHAIN_ART.tokenId}, ${OFF_CHAIN_ART.standard} on Ethereum.`}
+					>
+						<div className="flex flex-col gap-10">
+							<div className="grid gap-10 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+								<div className="flex flex-col gap-4 text-[15px] leading-relaxed text-muted">
+									<p>
+										MURI started as an artwork. Off-Chain Art is a framework for work that can't fit
+										fully on-chain but should still last. Instead of a single tokenURI, the image is
+										stored in six places: two IPFS pinning services, Arweave, GitHub, Amazon S3 and the
+										Internet Archive.
+									</p>
+									<p>
+										The token is an on-chain web page. It fetches each link, hashes what comes back and
+										shows the first copy that matches the hash stored in the contract, so no other image
+										can ever be displayed. The artist and the collector can both add new links.
+									</p>
+									<p>
+										Some of its links have failed since the mint, and the piece still loads.
+									</p>
+									<div className="flex flex-wrap gap-x-6 gap-y-2 pt-2 font-mono text-[11px] uppercase tracking-[0.16em]">
+										<a href={OFF_CHAIN_ART.links.thread} target="_blank" rel="noopener noreferrer" className="link text-foreground">
+											The thread ↗
+										</a>
+										<a href={OFF_CHAIN_ART.links.token} target="_blank" rel="noopener noreferrer" className="link text-foreground">
+											The token ↗
+										</a>
+										<a href={OFF_CHAIN_ART.links.code} target="_blank" rel="noopener noreferrer" className="link text-foreground">
+											The code ↗
+										</a>
 									</div>
 								</div>
-							</div>
-
-							<div
-								className={`
-									p-6 rounded-xl
-									${
-										isDarkMode
-											? "bg-surface-dark border border-border-dark"
-											: "bg-surface-light border border-border-light shadow-soft"
-									}
-								`}
-							>
-								<div className="flex items-start gap-4">
-									<div
-										className={`
-											p-2 rounded-lg
-											${isDarkMode ? "bg-secondary-dark-subtle" : "bg-secondary-subtle"}
-										`}
-									>
-										<Link2 className={`w-5 h-5 ${isDarkMode ? "text-secondary-dark" : "text-secondary"}`} />
-									</div>
-									<div>
-										<h3
-											className={`
-												font-semibold mb-2
-												${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
-											`}
-										>
-											Multiple Backups
-										</h3>
-										<p
-											className={`
-												text-sm leading-relaxed
-												${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
-											`}
-										>
-											Store the same artwork in multiple places - IPFS, Arweave,
-											servers, anywhere
-										</p>
-									</div>
-								</div>
-							</div>
-
-							<div
-								className={`
-									p-6 rounded-xl
-									${
-										isDarkMode
-											? "bg-surface-dark border border-border-dark"
-											: "bg-surface-light border border-border-light shadow-soft"
-									}
-								`}
-							>
-								<div className="flex items-start gap-4">
-									<div
-										className={`
-											p-2 rounded-lg
-											${isDarkMode ? "bg-success-dark-subtle" : "bg-success-subtle"}
-										`}
-									>
-										<Users className={`w-5 h-5 ${isDarkMode ? "text-success-dark" : "text-success"}`} />
-									</div>
-									<div>
-										<h3
-											className={`
-												font-semibold mb-2
-												${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
-											`}
-										>
-											Collector Power
-										</h3>
-										<p
-											className={`
-												text-sm leading-relaxed
-												${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
-											`}
-										>
-											Let collectors add backup links too. More eyes helping
-											preserve your art
-										</p>
-									</div>
-								</div>
-							</div>
-
-							<div
-								className={`
-									p-6 rounded-xl
-									${
-										isDarkMode
-											? "bg-surface-dark border border-border-dark"
-											: "bg-surface-light border border-border-light shadow-soft"
-									}
-								`}
-							>
-								<div className="flex items-start gap-4">
-									<div
-										className={`
-											p-2 rounded-lg
-											${isDarkMode ? "bg-info-dark-subtle" : "bg-info-subtle"}
-										`}
-									>
-										<Zap className={`w-5 h-5 ${isDarkMode ? "text-info-dark" : "text-info"}`} />
-									</div>
-									<div>
-										<h3
-											className={`
-												font-semibold mb-2
-												${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
-											`}
-										>
-											Auto-Failover
-										</h3>
-										<p
-											className={`
-												text-sm leading-relaxed
-												${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
-											`}
-										>
-											Thanks to Smart HTML mode, your NFT tries each link until one works. No
-											manual switching needed
-										</p>
-									</div>
-								</div>
-							</div>
-
-							<div
-								className={`
-									p-6 rounded-xl
-									${
-										isDarkMode
-											? "bg-surface-dark border border-border-dark"
-											: "bg-surface-light border border-border-light shadow-soft"
-									}
-								`}
-							>
-								<div className="flex items-start gap-4">
-									<div
-										className={`
-											p-2 rounded-lg
-											${isDarkMode ? "bg-warning-dark-subtle" : "bg-warning-subtle"}
-										`}
-									>
-										<HelpCircle className={`w-5 h-5 ${isDarkMode ? "text-warning-dark" : "text-warning"}`} />
-									</div>
-									<div>
-										<h3
-											className={`
-												font-semibold mb-2
-												${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
-											`}
-										>
-											Flexible Control
-										</h3>
-										<p
-											className={`
-												text-sm leading-relaxed
-												${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
-											`}
-										>
-											Set fine-grained permissions for artists and collectors.
-											Take total control over who can do what
-										</p>
-									</div>
-								</div>
-							</div>
-
-							<div
-								className={`
-									p-6 rounded-xl
-									${
-										isDarkMode
-											? "bg-surface-dark border border-border-dark"
-											: "bg-surface-light border border-border-light shadow-soft"
-									}
-								`}
-							>
-								<div className="flex items-start gap-4">
-									<div
-										className={`
-											p-2 rounded-lg
-											${isDarkMode ? "bg-danger-dark-subtle" : "bg-danger-subtle"}
-										`}
-									>
-										<Heart className={`w-5 h-5 ${isDarkMode ? "text-danger-dark" : "text-danger"}`} />
-									</div>
-									<div>
-										<h3
-											className={`
-												font-semibold mb-2
-												${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
-											`}
-										>
-											Fully Open Source
-										</h3>
-										<p
-											className={`
-												text-sm leading-relaxed
-												${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
-											`}
-										>
-											Transparent, auditable code. Fork it, improve it, or run your own version
-										</p>
-									</div>
+								<div className="flex flex-col gap-3">
+									<p className="text-[13px] text-muted leading-relaxed">
+										The image blends six historic paintings that were altered without their artists'
+										consent or outside their intent:
+									</p>
+									<ul className="flex flex-col border-t border-line">
+										{OFF_CHAIN_ART.paintings.map((p) => (
+											<li key={p.title} className="flex justify-between gap-4 py-2 border-b border-line text-[13px]">
+												<span>{p.title}</span>
+												<span className="text-muted text-right">{p.artist}</span>
+											</li>
+										))}
+									</ul>
 								</div>
 							</div>
 						</div>
-					</section>
-					{/* FAQ Section */}
-					<section className="py-16">
-						<div className="text-center mb-12">
-							<h2
-								className={`
-									text-3xl md:text-4xl font-bold mb-4
-									${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
-								`}
-							>
-								Common Questions
-							</h2>
-						</div>
+					</Section>
 
-						<div className="max-w-3xl mx-auto space-y-4">
-							{/* FAQ Item 1 */}
-							<div
-								className={`
-									rounded-lg border overflow-hidden
-									${
-										isDarkMode
-											? "bg-surface-dark border-border-dark"
-											: "bg-surface-light border-border-light"
-									}
-								`}
-							>
-								<button
-									onClick={() => toggleFaq("what")}
-									className={`
-										w-full px-6 py-4 flex items-center justify-between
-										transition-colors
-										${
-											isDarkMode
-												? "hover:bg-surface-hover-dark"
-												: "hover:bg-surface-hover-light"
-										}
-									`}
-								>
-									<h3
-										className={`
-											text-lg font-semibold text-left
-											${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
-										`}
-									>
-										What problem does MURI Protocol solve?
-									</h3>
-									<span
-										className={`
-											text-2xl
-											${isDarkMode ? "text-text-tertiary-dark" : "text-text-tertiary-light"}
-										`}
-									>
-										{openFaq.what ? "−" : "+"}
-									</span>
-								</button>
-								{openFaq.what && (
-									<div
-										className={`
-											px-6 pb-4 pt-2
-											${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
-										`}
-									>
-										<p className="leading-relaxed">
-											Most NFTs rely on a single link to display the artwork. If that
-											link breaks (server goes down, IPFS gateway fails, etc.), the
-											NFT becomes a broken image. MURI stores multiple backup
-											links and automatically tries each one until it finds a working
-											version. Your art stays visible, no matter what.
-										</p>
-									</div>
-								)}
-							</div>
+					<Section
+						title="How a token resolves"
+						description="What happens when a marketplace asks a MURI token for its artwork."
+					>
+						<TokenAnatomy />
+					</Section>
 
-							{/* FAQ Item 2 */}
-							<div
-								className={`
-									rounded-lg border overflow-hidden
-									${
-										isDarkMode
-											? "bg-surface-dark border-border-dark"
-											: "bg-surface-light border-border-light"
-									}
-								`}
-							>
-								<button
-									onClick={() => toggleFaq("how")}
-									className={`
-										w-full px-6 py-4 flex items-center justify-between
-										transition-colors
-										${
-											isDarkMode
-												? "hover:bg-surface-hover-dark"
-												: "hover:bg-surface-hover-light"
-										}
-									`}
-								>
-									<h3
-										className={`
-											text-lg font-semibold text-left
-											${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
-										`}
-									>
-										How does it work technically?
-									</h3>
-									<span
-										className={`
-											text-2xl
-											${isDarkMode ? "text-text-tertiary-dark" : "text-text-tertiary-light"}
-										`}
-									>
-										{openFaq.how ? "−" : "+"}
-									</span>
-								</button>
-								{openFaq.how && (
-									<div
-										className={`
-											px-6 pb-4 pt-2
-											${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
-										`}
-									>
-										<p className="leading-relaxed">
-											MURI stores your NFT metadata and a hash of your artwork
-											on-chain. You provide multiple URLs where your artwork lives
-											(IPFS, Arweave, etc.). In "Smart HTML" mode, we embed a smart
-											template that tries each URL in order until one loads. In
-											"Direct mode," you (or collectors, if allowed) can pick which 
-											URL to show and switch manually if needed.
-										</p>
-									</div>
-								)}
-							</div>
+					<Section
+						title="Storage"
+						description="Optional. Upload a copy from the mint page or paste links you already host. MURI takes no fee."
+					>
+						<StorageCost />
+					</Section>
 
-							{/* FAQ Item 3 */}
-							<div
-								className={`
-									rounded-lg border overflow-hidden
-									${
-										isDarkMode
-											? "bg-surface-dark border-border-dark"
-											: "bg-surface-light border-border-light"
-									}
-								`}
-							>
-								<button
-									onClick={() => toggleFaq("why")}
-									className={`
-										w-full px-6 py-4 flex items-center justify-between
-										transition-colors
-										${
-											isDarkMode
-												? "hover:bg-surface-hover-dark"
-												: "hover:bg-surface-hover-light"
-										}
-									`}
-								>
-									<h3
-										className={`
-											text-lg font-semibold text-left
-											${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
-										`}
-									>
-										Can collectors really help preserve my art?
-									</h3>
-									<span
-										className={`
-											text-2xl
-											${isDarkMode ? "text-text-tertiary-dark" : "text-text-tertiary-light"}
-										`}
-									>
-										{openFaq.why ? "−" : "+"}
-									</span>
-								</button>
-								{openFaq.why && (
-									<div
-										className={`
-											px-6 pb-4 pt-2
-											${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
-										`}
-									>
-										<p className="leading-relaxed">
-											Yes! If you grant permission, collectors can add their own
-											backup URLs for artwork they own. This creates a community
-											preservation effort - if your original links fail, collector
-											backups can keep the art alive. You decide what collectors can
-											and can't do.
-										</p>
-									</div>
-								)}
-							</div>
+					<Section
+						title="Permissions"
+						description="Each token stores who may change what as one number. The artist's bits can be switched off later, not back on. The owner's are set at mint."
+					>
+						<PermissionBits />
+					</Section>
 
-							{/* FAQ Item 4 */}
-							<div
-								className={`
-									rounded-lg border overflow-hidden
-									${
-										isDarkMode
-											? "bg-surface-dark border-border-dark"
-											: "bg-surface-light border-border-light"
-									}
-								`}
-							>
-								<button
-									onClick={() => toggleFaq("who")}
-									className={`
-										w-full px-6 py-4 flex items-center justify-between
-										transition-colors
-										${
-											isDarkMode
-												? "hover:bg-surface-hover-dark"
-												: "hover:bg-surface-hover-light"
-										}
-									`}
-								>
-									<h3
-										className={`
-											text-lg font-semibold text-left
-											${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
-										`}
-									>
-										Who should use MURI Protocol?
-									</h3>
-									<span
-										className={`
-											text-2xl
-											${isDarkMode ? "text-text-tertiary-dark" : "text-text-tertiary-light"}
-										`}
-									>
-										{openFaq.who ? "−" : "+"}
-									</span>
-								</button>
-								{openFaq.who && (
-									<div
-										className={`
-											px-6 pb-4 pt-2
-											${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
-										`}
-									>
-										<p className="leading-relaxed">
-											Artists whose artwork is too large to store fully on-chain. While
-											fully on-chain minting is the most resilient approach, MURI 
-											provides the next best option when that's not practical due to file 
-											size—offering better protection against link rot and platform failures 
-											by not putting all your eggs in one basket. Works with Manifold Creator 
-											Cores (ERC721 and ERC1155).
-										</p>
-									</div>
-								)}
-							</div>
-						</div>
-					</section>
+					<Section title="Questions">
+						<dl className="flex flex-col gap-7">
+							{questions.map((item) => (
+								<div key={item.q} className="flex flex-col gap-1.5">
+									<dt className="font-semibold text-[14px]">{item.q}</dt>
+									<dd className="text-[14px] text-muted leading-relaxed">{item.a}</dd>
+								</div>
+							))}
+						</dl>
+					</Section>
 
-					{/* CTA Section */}
-					<section className="py-16 text-center">
-						<div className="max-w-4xl mx-auto">
-							<div
-								className={`
-									p-12 md:p-16 rounded-3xl
-									${
-										isDarkMode
-											? "bg-surface-dark border-2 border-border-dark shadow-strong"
-											: "bg-surface-light border-2 border-border-light shadow-strong"
-									}
-								`}
-							>
-								<Sparkles className={`w-16 h-16 mx-auto mb-6 ${isDarkMode ? "text-primary-dark" : "text-primary"}`} />
-								
-								<h2
-									className={`
-										text-3xl md:text-5xl font-bold mb-6
-										${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
-									`}
-								>
-									Ready to get started?
-								</h2>
-								<p
-									className={`
-										text-lg md:text-xl mb-10 leading-relaxed
-										${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
-									`}
-								>
-									Start minting more resilient NFTs
-								</p>
-								<Link
-									to="/collections"
-									className={`group inline-block px-12 py-6 rounded-2xl text-xl font-bold text-white shadow-strong transition-all duration-300 hover:scale-105 ${
-										isDarkMode ? "bg-primary-dark hover:bg-primary-dark-hover" : "bg-primary hover:bg-primary-hover"
-									}`}
-								>
-									<span className="flex items-center gap-3">
-										Get Started
-										<Sparkles className="w-6 h-6 group-hover:rotate-12 transition-transform" />
-									</span>
-								</Link>
-							</div>
-						</div>
-					</section>
+					<Section title="Contracts" description="Same addresses on Ethereum, Base and Sepolia.">
+						<dl className="flex flex-col gap-4">
+							{[
+								{ label: "MURIProtocol", address: MURI_ADDRESS },
+								{ label: "Manifold extension", address: MURI_EXTENSION_ADDRESS },
+							].map((c) => (
+								<div key={c.label} className="flex flex-col gap-1">
+									<dt className="text-[13px] text-muted">{c.label}</dt>
+									<dd>
+										<a
+											href={`https://etherscan.io/address/${c.address}`}
+											target="_blank"
+											rel="noopener noreferrer"
+											className="font-mono text-[13px] break-all hover:opacity-60 transition-opacity"
+										>
+											{c.address}
+										</a>
+									</dd>
+								</div>
+							))}
+						</dl>
+					</Section>
 				</div>
 			</div>
-
-			<Footer isDarkMode={isDarkMode} />
-		</PageBackground>
+		</Layout>
 	);
 }

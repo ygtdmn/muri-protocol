@@ -1,914 +1,502 @@
-import { useState, useEffect, useMemo, useRef } from "react";
-import {
-	useWriteContract,
-	useWaitForTransactionReceipt,
-	useReadContracts,
-} from "wagmi";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useConnection, useReadContract } from "wagmi";
+import { Link, useSearchParams } from "react-router-dom";
+import { isAddress } from "viem";
 import type { Address } from "viem";
+import NetworkNotice from "../components/NetworkNotice";
 import { muriAbi } from "../abis/muri-abi";
-import Header from "../components/Header";
-import { useTheme } from "../hooks/useTheme";
-import Footer from "../components/Footer";
-import PageBackground from "../components/PageBackground";
-import { readError, readResult } from "../utils/readResults";
+import Layout from "../components/Layout";
+import ConnectWallet from "../components/ConnectWallet";
+import TokenBrowser from "../components/TokenBrowser";
+import UriList from "../components/UriList";
+import StorageUploader from "../components/StorageUploader";
+import { TxFeedback } from "../components/TxFeedback";
+import {
+	Button,
+	ButtonLink,
+	Choice,
+	Field,
+	Input,
+	LoadingLine,
+	Notice,
+	PageTitle,
+	Rule,
+	Section,
+	StatusLabel,
+} from "../components/ui";
+import { useMuriToken } from "../hooks/useMuriToken";
+import { useMuriTransaction } from "../hooks/useMuriTransaction";
+import { usePageChain } from "../hooks/usePageChain";
+import { useIsCollectionAdmin } from "../hooks/useIsCollectionAdmin";
+import { uriProblem } from "../lib/uri";
+import { chainName } from "../lib/chains";
+import type { AppChainId } from "../lib/chains";
+import type { StoredFile } from "../lib/storage";
+import {
+	COLLECTOR_PERMISSIONS,
+	DISPLAY_MODES,
+	MURI_ADDRESS,
+	hasPermission,
+	parseMetadataFields,
+	shortAddress,
+} from "../lib/muri";
 
-type TokenPermissions = {
-	flags: number;
-};
+const ownershipAbi = [
+	{
+		type: "function",
+		name: "ownerOf",
+		inputs: [{ name: "tokenId", type: "uint256" }],
+		outputs: [{ name: "", type: "address" }],
+		stateMutability: "view",
+	},
+	{
+		type: "function",
+		name: "balanceOf",
+		inputs: [
+			{ name: "account", type: "address" },
+			{ name: "id", type: "uint256" },
+		],
+		outputs: [{ name: "", type: "uint256" }],
+		stateMutability: "view",
+	},
+] as const;
 
-type TokenArtwork = {
-	selectedArtistUriIndex: bigint;
-};
-
-type TokenData = readonly [
-	string,
-	unknown,
-	TokenArtwork,
-	TokenPermissions,
-	number,
-	unknown,
-];
-
-type ThumbnailInfo = readonly [number, bigint];
+function useOwnership(creator: Address | undefined, type: string, tokenId: bigint | undefined, chainId: AppChainId) {
+	const { address } = useConnection();
+	const enabled = Boolean(creator && tokenId !== undefined && address);
+	const owner721 = useReadContract({
+		abi: ownershipAbi,
+		address: creator,
+		functionName: "ownerOf",
+		args: tokenId !== undefined ? [tokenId] : undefined,
+		chainId,
+		query: { enabled: enabled && type === "ERC721" },
+	});
+	const balance1155 = useReadContract({
+		abi: ownershipAbi,
+		address: creator,
+		functionName: "balanceOf",
+		args: address && tokenId !== undefined ? [address, tokenId] : undefined,
+		chainId,
+		query: { enabled: enabled && type === "ERC1155" },
+	});
+	if (!enabled) return undefined;
+	if (type === "ERC721") {
+		return owner721.data ? owner721.data.toLowerCase() === address!.toLowerCase() : undefined;
+	}
+	return balance1155.data !== undefined ? balance1155.data > 0n : undefined;
+}
 
 export default function CollectorZone() {
-	const [sp] = useSearchParams();
-	const navigate = useNavigate();
-	const creator = (sp.get("creator") || "") as Address;
+	const [params, setParams] = useSearchParams();
+	const creator = (params.get("creator") ?? "") as Address;
+	const type = params.get("type") ?? "";
+	const [tokenInput, setTokenInput] = useState(params.get("token") ?? "");
+	const [browsing, setBrowsing] = useState(false);
+	const [showAllTokens, setShowAllTokens] = useState(false);
+	const collectionType = type === "ERC721" || type === "ERC1155" ? type : undefined;
+	const [newUri, setNewUri] = useState("");
+	const [mode, setMode] = useState(1);
+	// Copies uploaded here, kept until they're on the token so a failed add never loses a paid upload.
+	const [uploaded, setUploaded] = useState<StoredFile[]>([]);
+	const { address, isConnected } = useConnection();
+	const validCreator = isAddress(creator);
+	const chainId = usePageChain();
 
-	// Token selection
-	const [tokenId, setTokenId] = useState("");
-
-	// Display mode
-	const [displayMode, setDisplayMode] = useState(1);
-
-	// URI management for collectors
-	const [newArtworkUri, setNewArtworkUri] = useState("");
-
-	// Selection updates
-	const [selectedArtworkIndex, setSelectedArtworkIndex] = useState(0);
-	const [selectedThumbnailIndex, setSelectedThumbnailIndex] = useState(0);
-
-	// Theme
-	const { isDarkMode, toggleTheme } = useTheme();
-
-	// Transaction state
-	const { data: hash, isPending, writeContract } = useWriteContract();
-	const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
-		hash,
-	});
-	const refetchedSuccessHash = useRef<`0x${string}` | undefined>(undefined);
-	const muriAddress = import.meta.env.VITE_MURI_ADDRESS as Address;
-	const hasTokenSelection = Boolean(creator && /^\d+$/.test(tokenId.trim()));
-	const tokenIdBigInt = useMemo(() => {
-		try {
-			return tokenId.trim() ? BigInt(tokenId.trim()) : 0n;
-		} catch {
-			return 0n;
-		}
-	}, [tokenId]);
-
-	const tokenReadContracts = useMemo(() => {
-		if (!hasTokenSelection) return undefined;
-
-		const tokenArgs = [creator, tokenIdBigInt] as const;
-		return [
-			{
-				abi: muriAbi,
-				address: muriAddress,
-				functionName: "tokenData",
-				args: tokenArgs,
-			},
-			{
-				abi: muriAbi,
-				address: muriAddress,
-				functionName: "getPermissions",
-				args: tokenArgs,
-			},
-			{
-				abi: muriAbi,
-				address: muriAddress,
-				functionName: "getArtwork",
-				args: tokenArgs,
-			},
-			{
-				abi: muriAbi,
-				address: muriAddress,
-				functionName: "getThumbnailInfo",
-				args: tokenArgs,
-			},
-			{
-				abi: muriAbi,
-				address: muriAddress,
-				functionName: "getArtistArtworkUris",
-				args: tokenArgs,
-			},
-			{
-				abi: muriAbi,
-				address: muriAddress,
-				functionName: "getCollectorArtworkUris",
-				args: tokenArgs,
-			},
-			{
-				abi: muriAbi,
-				address: muriAddress,
-				functionName: "getThumbnailUris",
-				args: tokenArgs,
-			},
-		] as const;
-	}, [creator, hasTokenSelection, muriAddress, tokenIdBigInt]);
-
-	const {
-		data: tokenReadResults,
-		error: tokenReadsError,
-		isLoading: tokenDataLoading,
-		refetch: refetchTokenReads,
-	} = useReadContracts({
-		allowFailure: true,
-		contracts: tokenReadContracts,
-		query: {
-			enabled: hasTokenSelection,
-			staleTime: 30_000,
-		},
-	});
-
-	const tokenData = readResult<TokenData>(tokenReadResults?.[0]);
-	const tokenDataError = readError(tokenReadResults?.[0]) ?? tokenReadsError;
-	const permissions = readResult<TokenPermissions>(tokenReadResults?.[1]);
-	const artwork = readResult<TokenArtwork>(tokenReadResults?.[2]);
-	const thumbnailInfo = readResult<ThumbnailInfo>(tokenReadResults?.[3]);
-	const artistArtworkUris = readResult<readonly string[]>(tokenReadResults?.[4]);
-	const collectorArtworkUris = readResult<readonly string[]>(
-		tokenReadResults?.[5]
+	const { tokenId, isValidId, token, notFound, isLoading, error, refetch } = useMuriToken(
+		validCreator ? creator : undefined,
+		tokenInput,
+		chainId
 	);
-	const artistThumbnailUris = readResult<readonly string[]>(tokenReadResults?.[6]);
+	const owns = useOwnership(validCreator ? creator : undefined, type, tokenId, chainId);
+	const isAdmin = useIsCollectionAdmin(validCreator ? creator : undefined, chainId);
+	const tx = useMuriTransaction(() => void refetch(), chainId);
 
-	// Initialize data from contract when data loads
 	useEffect(() => {
-		if (tokenData) {
-			setDisplayMode(Number(tokenData[4])); // displayMode
-		}
-		if (artwork) {
-			setSelectedArtworkIndex(Number(artwork.selectedArtistUriIndex));
-		}
-		if (thumbnailInfo) {
-			setSelectedThumbnailIndex(Number(thumbnailInfo[1]));
-		}
-	}, [tokenData, artwork, thumbnailInfo]);
+		if (token) setMode(token.displayMode);
+	}, [token]);
 
-	// Derived permissions from contract data
-	const isOnChainThumbnail = thumbnailInfo ? thumbnailInfo[0] === 0 : true;
-
-	const permissionsData = useMemo(() => {
-		const flags = permissions ? Number(permissions.flags) : 0;
-		return {
-			allowToggleDisplay: (flags & (1 << 10)) !== 0,
-			allowSelectArtwork: (flags & (1 << 7)) !== 0,
-			allowSelectThumbnail: (flags & (1 << 9)) !== 0,
-			allowAddArtwork: (flags & (1 << 8)) !== 0,
-			isHtmlMode: displayMode === 1,
-		};
-	}, [permissions, displayMode]);
-
-	const {
-		allowToggleDisplay,
-		allowSelectArtwork,
-		allowSelectThumbnail,
-		allowAddArtwork,
-		isHtmlMode,
-	} = permissionsData;
-
-	// Contract interaction functions
-	const updateDisplayMode = () => {
-		writeContract({
-			abi: muriAbi,
-			address: muriAddress,
-			functionName: "setDisplayMode",
-			args: [creator, tokenIdBigInt, displayMode],
-		});
-	};
-
-	const updateArtworkSelection = () => {
-		writeContract({
-			abi: muriAbi,
-			address: muriAddress,
-			functionName: "setSelectedUri",
-			args: [creator, tokenIdBigInt, BigInt(selectedArtworkIndex)],
-		});
-	};
-
-	const updateThumbnailSelection = () => {
-		writeContract({
-			abi: muriAbi,
-			address: muriAddress,
-			functionName: "setSelectedThumbnailUri",
-			args: [creator, tokenIdBigInt, BigInt(selectedThumbnailIndex)],
-		});
-	};
-
-	const addCollectorArtworkUri = () => {
-		if (!newArtworkUri.trim()) return;
-		writeContract({
-			abi: muriAbi,
-			address: muriAddress,
-			functionName: "addArtworkUris",
-			args: [creator, tokenIdBigInt, [newArtworkUri.trim()]],
-		});
-		setNewArtworkUri("");
-	};
-
-	const removeCollectorArtworkUri = (index: number) => {
-		writeContract({
-			abi: muriAbi,
-			address: muriAddress,
-			functionName: "removeArtworkUris",
-			args: [creator, tokenIdBigInt, [BigInt(index)]],
-		});
-	};
-
-	// Effect to refetch data after successful transactions
+	// Uploads and drafts belong to one token; start fresh when switching.
+	const tokenKey = `${chainId}:${tokenId ?? ""}`;
 	useEffect(() => {
-		if (isSuccess && hash && refetchedSuccessHash.current !== hash) {
-			refetchedSuccessHash.current = hash;
-			refetchTokenReads();
-		}
-	}, [hash, isSuccess, refetchTokenReads]);
+		setUploaded([]);
+		setNewUri("");
+	}, [tokenKey]);
 
-	if (!creator) {
+	useEffect(() => {
+		if (tx.state.action === "add-uri" && tx.state.phase === "confirmed") setNewUri("");
+	}, [tx.state.action, tx.state.phase]);
+
+	useEffect(() => {
+		const next = new URLSearchParams(params);
+		if (isValidId) next.set("token", tokenInput.trim());
+		else next.delete("token");
+		if (next.toString() !== params.toString()) setParams(next, { replace: true });
+	}, [tokenInput, isValidId, params, setParams]);
+
+	if (!validCreator) {
 		return (
-			<div className="text-center py-12">
-				<p className={isDarkMode ? "text-zinc-400" : "text-zinc-600"}>
-					Please select a collection first.
-				</p>
-				<button
-					onClick={() => navigate("/collections")}
-					className="btn-primary mt-4"
-				>
-					Go to Collections
-				</button>
-			</div>
+			<Layout>
+				<PageTitle title="Pick a collection first">
+					<ButtonLink to="/collections?role=collector">Find a token →</ButtonLink>
+				</PageTitle>
+			</Layout>
 		);
 	}
 
-	if (isSuccess) {
-		return (
-			<PageBackground
-				isDarkMode={isDarkMode}
-				className={`min-h-screen flex items-center justify-center`}
-			>
-				<div className="max-w-2xl mx-auto text-center p-8 animate-scale-in">
-					<div
-						className={`
-							inline-flex items-center justify-center w-20 h-20 rounded-full mb-6
-							${
-								isDarkMode
-									? "bg-success-dark-subtle"
-									: "bg-success-subtle"
-							}
-						`}
+	const meta = token ? parseMetadataFields(token.metadata) : undefined;
+	// The contract treats an admin as the artist, so "owner" actions from an admin wallet would
+	// change the artist's links instead. Admins manage the token from Update.
+	const actsAsArtist = isConnected && isAdmin === true;
+	const can = token && !actsAsArtist
+		? {
+				add: hasPermission(token.flags, "collectorAddRemove"),
+				choose: hasPermission(token.flags, "collectorChooseUris") && token.displayMode === 0,
+				mode: hasPermission(token.flags, "collectorUpdateMode"),
+				thumb: hasPermission(token.flags, "collectorChooseThumb") && !token.isOnChainThumbnail && token.thumbnailUris.length > 0,
+			}
+		: undefined;
+	const nothingAllowed = can && !can.add && !can.choose && !can.mode && !can.thumb;
+	const id = tokenId ?? 0n;
+
+	const add = (uri: string) =>
+		tx.run("add-uri", {
+			abi: muriAbi,
+			address: MURI_ADDRESS,
+			functionName: "addArtworkUris",
+			args: [creator, id, [uri]],
+		});
+
+	const sections: { key: string; title: string; description?: string; body: React.ReactNode }[] = [];
+
+	if (token && can?.add) {
+		const invalid = newUri.trim() ? uriProblem(newUri.trim()) : null;
+		const pending = uploaded.filter((u) => !token.collectorUris.includes(u.uri));
+		sections.push({
+			key: "backups",
+			title: "Your backups",
+			description:
+				token.displayMode === 1
+					? "Smart HTML tries these after the artist's links."
+					: "Only used in Smart HTML mode. In direct mode the token shows one of the artist's links.",
+			body: (
+				<div className="flex flex-col gap-8">
+					<UriList
+						uris={token.collectorUris}
+						busy={tx.busy}
+						emptyLabel="You haven't added any backups yet."
+						onRemove={(i) =>
+							void tx.run("remove-uri", {
+								abi: muriAbi,
+								address: MURI_ADDRESS,
+								functionName: "removeArtworkUris",
+								args: [creator, id, [BigInt(i)]],
+							})
+						}
+					/>
+					<TxFeedback state={tx.state} action="remove-uri" />
+					<Rule label="Add a link" />
+					<form
+						className="flex flex-col gap-2"
+						onSubmit={(e) => {
+							e.preventDefault();
+							if (!invalid && newUri.trim()) void add(newUri.trim());
+						}}
 					>
-						<svg
-							className={`w-10 h-10 ${isDarkMode ? "text-success-dark" : "text-success"}`}
-							fill="none"
-							stroke="currentColor"
-							viewBox="0 0 24 24"
-						>
-							<path
-								strokeLinecap="round"
-								strokeLinejoin="round"
-								strokeWidth={2}
-								d="M5 13l4 4L19 7"
+						<div className="flex flex-col sm:flex-row gap-3">
+							<Input
+								aria-label="Backup URI"
+								className="font-mono text-[13px] flex-1"
+								placeholder="https://…, ar://… or ipfs://…"
+								value={newUri}
+								onChange={(e) => setNewUri(e.target.value)}
+								spellCheck={false}
 							/>
-						</svg>
-					</div>
-
-					<h2
-						className={`
-							text-3xl md:text-4xl font-bold mb-3
-							${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
-						`}
-					>
-						Token Updated!
-					</h2>
-					<p
-						className={`
-							text-lg mb-8
-							${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
-						`}
-					>
-						Token #{tokenId} has been successfully updated
-					</p>
-
-					<div className="flex flex-col sm:flex-row gap-3 justify-center">
-						<button
-							onClick={() => navigate("/collections")}
-							className={`
-								px-6 py-3 rounded-lg font-semibold
-								border transition-all duration-200
-								${
-									isDarkMode
-										? "bg-surface-dark hover:bg-surface-hover-dark text-text-primary-dark border-border-dark"
-										: "bg-surface-light hover:bg-surface-hover-light text-text-primary-light border-border-light"
-								}
-							`}
-						>
-							Back to Collections
-						</button>
-						<button
-							onClick={() => window.location.reload()}
-							className={`
-								px-6 py-3 rounded-lg font-semibold
-								bg-primary hover:bg-primary-hover
-								dark:bg-primary-dark dark:hover:bg-primary-dark-hover
-								text-white
-								shadow-soft hover:shadow-medium
-								transition-all duration-200
-							`}
-						>
-							Update Another
-						</button>
-					</div>
+							<Button type="submit" variant="secondary" disabled={!newUri.trim() || Boolean(invalid) || tx.busy}>
+								Add
+							</Button>
+						</div>
+						{invalid && <p className="text-[13px] text-signal">{invalid}</p>}
+					</form>
+					<Rule label="Or upload your own copy" />
+					<StorageUploader
+						expectedHash={token.fileHash}
+						stored={uploaded}
+						disabled={tx.busy}
+						onStored={(s) => {
+							setUploaded((prev) => [...prev, s]);
+							void add(s.uri);
+						}}
+					/>
+					{pending.length > 0 && (
+						<Notice tone="caution" title="Uploaded, not on the token yet">
+							<span className="flex flex-col gap-3">
+								<span>These copies are stored and paid for. Add them to the token:</span>
+								{pending.map((u) => (
+									<span key={u.uri} className="flex flex-wrap items-center gap-3">
+										<span className="font-mono text-[12px] break-all">{u.uri}</span>
+										<Button size="sm" variant="secondary" disabled={tx.busy} onClick={() => void add(u.uri)}>
+											Add to token
+										</Button>
+									</span>
+								))}
+							</span>
+						</Notice>
+					)}
+					<TxFeedback state={tx.state} action="add-uri" successMessage="Backup added." />
 				</div>
-			</PageBackground>
-		);
+			),
+		});
+	}
+
+	if (token && can?.mode) {
+		sections.push({
+			key: "mode",
+			title: "Display mode",
+			body: (
+				<div className="flex flex-col gap-3" role="radiogroup" aria-label="Display mode">
+					{DISPLAY_MODES.map((m) => (
+						<Choice
+							key={m.value}
+							type="radio"
+							name="display"
+							checked={mode === m.value}
+							onChange={() => setMode(m.value)}
+							title={m.name}
+							description={m.description}
+							meta={token.displayMode === m.value ? "Current" : undefined}
+						/>
+					))}
+					<div className="pt-3">
+						<Button
+							variant="secondary"
+							disabled={mode === token.displayMode || tx.busy}
+							onClick={() =>
+								void tx.run("display-mode", {
+									abi: muriAbi,
+									address: MURI_ADDRESS,
+									functionName: "setDisplayMode",
+									args: [creator, id, mode],
+								})
+							}
+						>
+							Save display mode
+						</Button>
+					</div>
+					<TxFeedback state={tx.state} action="display-mode" />
+				</div>
+			),
+		});
+	}
+
+	if (token && can?.choose) {
+		sections.push({
+			key: "choose",
+			title: "Displayed link",
+			description: "Pick which of the artist's links marketplaces load.",
+			body: (
+				<div className="flex flex-col gap-4">
+					<UriList
+						uris={token.artistUris}
+						selectedIndex={token.selectedArtistUriIndex}
+						showSelection
+						busy={tx.busy}
+						onSelect={(i) =>
+							void tx.run("select-uri", {
+								abi: muriAbi,
+								address: MURI_ADDRESS,
+								functionName: "setSelectedUri",
+								args: [creator, id, BigInt(i)],
+							})
+						}
+					/>
+					<TxFeedback state={tx.state} action="select-uri" />
+				</div>
+			),
+		});
+	}
+
+	if (token && can?.thumb) {
+		sections.push({
+			key: "thumb",
+			title: "Thumbnail",
+			body: (
+				<div className="flex flex-col gap-4">
+					<UriList
+						uris={token.thumbnailUris}
+						selectedIndex={token.selectedThumbnailIndex}
+						showSelection
+						busy={tx.busy}
+						onSelect={(i) =>
+							void tx.run("select-thumb", {
+								abi: muriAbi,
+								address: MURI_ADDRESS,
+								functionName: "setSelectedThumbnailUri",
+								args: [creator, id, BigInt(i)],
+							})
+						}
+					/>
+					<TxFeedback state={tx.state} action="select-thumb" />
+				</div>
+			),
+		});
 	}
 
 	return (
-		<PageBackground
-			isDarkMode={isDarkMode}
-			className={`scroll-smooth min-h-screen flex flex-col relative ${
-				isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"
-			}`}
-		>
-			<Header isDarkMode={isDarkMode} toggleTheme={toggleTheme} />
+		<Layout>
+			<div className="flex flex-col gap-14">
+				<PageTitle
+					back={
+						<Link to="/collections?role=collector" className="hover:text-foreground transition-colors">
+							← {type || "Collection"} · {shortAddress(creator)} · {chainName(chainId)}
+						</Link>
+					}
+					title={meta?.name || "Preserve a token"}
+				>
+					Check the artwork's links and add your own copies, so the piece outlives any single host.
+				</PageTitle>
 
-			{/* Main Content */}
-			<div className="flex-grow">
-				<div className="px-4 md:px-6 lg:px-8 py-8 max-w-4xl mx-auto space-y-8">
-					<div className="text-center md:text-left">
-						<h1
-							className={`
-								text-3xl md:text-4xl font-bold mb-3
-								${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
-							`}
-						>
-							Collector Zone
-						</h1>
-						<p
-							className={`
-								text-lg
-								${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
-							`}
-						>
-							Help preserve your artwork
-						</p>
-					</div>
-
-					{/* Token Selection */}
-					<div
-						className={`
-							p-6 rounded-xl
-							${
-								isDarkMode
-									? "bg-surface-dark border border-border-dark"
-									: "bg-surface-light border border-border-light shadow-soft"
-							}
-						`}
-					>
-						<h3
-							className={`
-								text-xl font-bold mb-2
-								${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
-							`}
-						>
-							Select Your Token
-						</h3>
-						<p
-							className={`
-								text-sm mb-4
-								${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
-							`}
-						>
-							Enter the token ID you own and want to customize
-						</p>
-						<div className="space-y-4">
-							<div>
-								<label className="label">Collection Address</label>
-								<p
-									className={`text-sm ${
-										isDarkMode ? "text-zinc-400" : "text-zinc-600"
-									} font-mono`}
-								>
-									{creator}
-								</p>
+				<div className="flex flex-col gap-6 md:gap-8">
+					<Section title="Token">
+						<div className="flex flex-col gap-5">
+							<div className="grid gap-5 sm:grid-cols-[10rem_minmax(0,1fr)] sm:items-end">
+								<Field label="Token ID" htmlFor="collector-token">
+									<Input
+										id="collector-token"
+										inputMode="numeric"
+										placeholder="1"
+										value={tokenInput}
+										onChange={(e) => setTokenInput(e.target.value.replace(/[^\d]/g, ""))}
+										autoFocus={!tokenInput}
+									/>
+								</Field>
+								<div className="sm:pb-3 flex flex-wrap gap-x-6 gap-y-2">
+									{isLoading ? (
+										<LoadingLine label="Reading token" />
+									) : notFound ? (
+										<StatusLabel tone="signal">Not a MURI token in this collection</StatusLabel>
+									) : token ? (
+										<>
+											<StatusLabel tone="up">{token.displayMode === 1 ? "Smart HTML" : "Direct file"}</StatusLabel>
+											{owns === true && <StatusLabel tone="up">You own this</StatusLabel>}
+											{owns === false && <StatusLabel tone="caution">Not owned by this wallet</StatusLabel>}
+										</>
+									) : null}
+								</div>
 							</div>
-							<div>
-								<label className="label">Token ID *</label>
-								<input
-									className="input-field"
-									placeholder="Enter token ID you own"
-									value={tokenId}
-									onChange={(e) => setTokenId(e.target.value)}
-									required
-								/>
-								<p className="help-text">
-									The ID of the token you want to update (must be owned by your
-									wallet)
-								</p>
-							</div>
-						</div>
-
-						{tokenData ? (
-							<>
-								<div
-									className={`mt-4 p-4 ${
-										isDarkMode
-											? "bg-zinc-800"
-											: "bg-zinc-100 border border-zinc-300"
-									} rounded-lg`}
+							{error && (
+								<Notice
+									tone="signal"
+									title="Couldn't read the token"
+									action={
+										<Button size="sm" variant="ghost" onClick={() => void refetch()}>
+											Retry →
+										</Button>
+									}
 								>
-									<p
-										className={`text-sm ${
-											isDarkMode ? "text-zinc-300" : "text-zinc-700"
-										} mb-3`}
-									>
-										Your Permissions:
-									</p>
-									<div className="grid grid-cols-2 gap-4 text-sm">
-										<span
-											className={`${
-												allowToggleDisplay ? "text-green-400" : "text-red-400"
-											}`}
-										>
-											Toggle Display Mode:{" "}
-											{allowToggleDisplay ? "Allowed" : "Disabled"}
+									{error.message.split("\n")[0]}
+								</Notice>
+							)}
+							{collectionType && (!token || browsing ? (
+								<div className="flex flex-col gap-4 border-t border-line pt-5">
+									<div className="flex flex-wrap items-baseline justify-between gap-3">
+										<span className="micro text-muted">
+											{address && !showAllTokens ? "Your tokens in this collection" : "MURI tokens in this collection"}
 										</span>
-										<span
-											className={`${
-												allowSelectArtwork ? "text-green-400" : "text-red-400"
-											}`}
-										>
-											Select Artwork:{" "}
-											{allowSelectArtwork ? "Allowed" : "Disabled"}
-										</span>
-										{!isOnChainThumbnail && (
-											<span
-												className={`${
-													allowSelectThumbnail
-														? "text-green-400"
-														: "text-red-400"
-												}`}
-											>
-												Select Thumbnail:{" "}
-												{allowSelectThumbnail ? "Allowed" : "Disabled"}
-											</span>
+										{address && (
+											<Button size="sm" variant="ghost" onClick={() => setShowAllTokens((v) => !v)}>
+												{showAllTokens ? "Only mine" : "Show all"}
+											</Button>
 										)}
-										<span
-											className={`${
-												allowAddArtwork ? "text-green-400" : "text-red-400"
-											}`}
-										>
-											Add Artwork: {allowAddArtwork ? "Allowed" : "Disabled"}
-										</span>
 									</div>
+									<TokenBrowser
+										creator={creator}
+										type={collectionType}
+										chainId={chainId}
+										owner={address && !showAllTokens ? address : undefined}
+										selectedId={isValidId ? tokenInput.trim() : undefined}
+										onSelect={(id) => {
+											setTokenInput(id);
+											setBrowsing(false);
+										}}
+										emptyLabel={
+											address && !showAllTokens
+												? "This wallet doesn't hold any MURI tokens from this collection on this network."
+												: "No MURI tokens in this collection on this network yet."
+										}
+									/>
+									{!address && (
+										<div className="flex flex-col sm:flex-row sm:items-center gap-4 justify-between">
+											<p className="text-[13px] text-muted">Connect to see only the tokens you own.</p>
+											<ConnectWallet />
+										</div>
+									)}
 								</div>
-
-							</>
-						) : null}
-					</div>
-
-					{/* Display Mode */}
-					{tokenData && allowToggleDisplay ? (
-						<div
-							className={`
-								p-6 rounded-xl
-								${
-									isDarkMode
-										? "bg-surface-dark border border-border-dark"
-										: "bg-surface-light border border-border-light shadow-soft"
-								}
-							`}
-						>
-							<h3
-								className={`
-									text-xl font-bold mb-2
-									${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
-								`}
-							>
-								Display Mode
-							</h3>
-							<p
-								className={`
-									text-sm mb-4
-									${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
-								`}
-							>
-								Choose how your NFT is displayed
-							</p>
-							<div className="space-y-4">
+							) : (
 								<div>
-									<label className="label">Current Display Mode</label>
-									<select
-										className="input-field"
-										value={displayMode}
-										onChange={(e) => setDisplayMode(Number(e.target.value))}
-									>
-										<option value={0}>Direct Image</option>
-										<option value={1}>Smart HTML</option>
-									</select>
-									<p className="help-text">
-										Choose how the artwork is displayed by default
-									</p>
+									<Button size="sm" variant="ghost" onClick={() => setBrowsing(true)}>
+										Choose another token →
+									</Button>
 								</div>
-								<button
-									type="button"
-									onClick={updateDisplayMode}
-									className="btn-primary"
-									disabled={isPending || isConfirming}
+							))}
+							{token && !isConnected && (
+								<div className="flex flex-col sm:flex-row sm:items-center gap-4 justify-between border-t border-line pt-5">
+									<p className="text-[13px] text-muted">Connect the wallet that owns this token to make changes.</p>
+									<ConnectWallet />
+								</div>
+							)}
+							{token && actsAsArtist && (
+								<Notice
+									tone="caution"
+									title="This wallet is an admin of the collection"
+									action={
+										<ButtonLink size="sm" variant="ghost" to={`/update?${params}`}>
+											Open in Update →
+										</ButtonLink>
+									}
 								>
-									{isPending || isConfirming
-										? "Updating..."
-										: "Update Display Mode"}
-								</button>
-							</div>
-						</div>
-					) : null}
-
-					{/* Artwork Selection */}
-					{tokenData &&
-					allowSelectArtwork &&
-					!isHtmlMode &&
-					artistArtworkUris &&
-					Array.isArray(artistArtworkUris) &&
-					artistArtworkUris.length > 0 ? (
-						<div
-							className={`
-								p-6 rounded-xl
-								${
-									isDarkMode
-										? "bg-surface-dark border border-border-dark"
-										: "bg-surface-light border border-border-light shadow-soft"
-								}
-							`}
-						>
-							<h3
-								className={`
-									text-xl font-bold mb-2
-									${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
-								`}
-							>
-								Select Artwork
-							</h3>
-							<p
-								className={`
-									text-sm mb-4
-									${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
-								`}
-							>
-								Choose which backup link to display
-							</p>
-							<div className="space-y-4">
-								<div className="space-y-2">
-									<p
-										className={`text-sm ${
-											isDarkMode ? "text-zinc-400" : "text-zinc-600"
-										}`}
-									>
-										Available artworks from artist:
-									</p>
-									{artistArtworkUris.map((uri: string, index: number) => (
-										<div
-											key={index}
-											onClick={() => setSelectedArtworkIndex(index)}
-											className={`flex gap-2 items-center p-3 rounded cursor-pointer transition-all duration-200 ${
-												selectedArtworkIndex === index
-													? "bg-blue-600 bg-opacity-20 border-2 border-blue-500 border-opacity-50"
-													: isDarkMode
-													? "bg-zinc-800 hover:bg-zinc-700 border-2 border-transparent"
-													: "bg-zinc-100 hover:bg-zinc-200 border-2 border-transparent"
-											}`}
-										>
-											<div
-												className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-													selectedArtworkIndex === index
-														? "border-blue-400 bg-blue-400"
-														: "border-zinc-500"
-												}`}
-											>
-												{selectedArtworkIndex === index && (
-													<div className="w-2 h-2 rounded-full bg-white"></div>
-												)}
-											</div>
-											<span className="flex-1 text-sm font-mono ${isDarkMode ? 'text-zinc-300' : 'text-zinc-700'} break-all">
-												{index}: {uri}
-											</span>
+									The contract treats it as the artist, so owner actions from it would change the artist's
+									links instead. Manage this token from Update, or connect the owner's wallet.
+								</Notice>
+							)}
+							<NetworkNotice chainId={chainId} />
+							{token && (
+								<dl className="grid gap-x-8 gap-y-2 sm:grid-cols-2 border-t border-line pt-5">
+									{COLLECTOR_PERMISSIONS.map((p) => (
+										<div key={p.key} className="flex items-center justify-between gap-4">
+											<dt className="text-[13px]">{p.label}</dt>
+											<dd>
+												<StatusLabel tone={hasPermission(token.flags, p.key) ? "up" : "neutral"}>
+													{hasPermission(token.flags, p.key) ? "Allowed" : "Off"}
+												</StatusLabel>
+											</dd>
 										</div>
 									))}
-								</div>
-								<button
-									type="button"
-									onClick={updateArtworkSelection}
-									className="btn-primary"
-									disabled={isPending || isConfirming}
-								>
-									{isPending || isConfirming
-										? "Updating..."
-										: "Update Artwork Selection"}
-								</button>
-							</div>
+								</dl>
+							)}
 						</div>
-					) : null}
+					</Section>
 
-					{/* Thumbnail Selection */}
-					{tokenData &&
-					allowSelectThumbnail &&
-					artistThumbnailUris &&
-					Array.isArray(artistThumbnailUris) &&
-					artistThumbnailUris.length > 0 ? (
-						<div className="card">
-							<h3
-								className={`text-lg font-semibold ${
-									isDarkMode ? "text-zinc-100" : "text-zinc-900"
-								} mb-4`}
-							>
-								Select Thumbnail
-							</h3>
-							<div className="space-y-4">
-								<div className="space-y-2">
-									<p
-										className={`text-sm ${
-											isDarkMode ? "text-zinc-400" : "text-zinc-600"
-										}`}
-									>
-										Available thumbnails from artist:
-									</p>
-									{artistThumbnailUris.map((uri: string, index: number) => (
-										<div
-											key={index}
-											onClick={() => setSelectedThumbnailIndex(index)}
-											className={`flex gap-2 items-center p-3 rounded cursor-pointer transition-all duration-200 ${
-												selectedThumbnailIndex === index
-													? "bg-blue-600 bg-opacity-20 border-2 border-blue-500 border-opacity-50"
-													: isDarkMode
-													? "bg-zinc-800 hover:bg-zinc-700 border-2 border-transparent"
-													: "bg-zinc-100 hover:bg-zinc-200 border-2 border-transparent"
-											}`}
-										>
-											<div
-												className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-													selectedThumbnailIndex === index
-														? "border-blue-400 bg-blue-400"
-														: "border-zinc-500"
-												}`}
-											>
-												{selectedThumbnailIndex === index && (
-													<div className="w-2 h-2 rounded-full bg-white"></div>
-												)}
-											</div>
-											<span className="flex-1 text-sm font-mono ${isDarkMode ? 'text-zinc-300' : 'text-zinc-700'} break-all">
-												{index}: {uri}
-											</span>
-										</div>
-									))}
-								</div>
-								<button
-									type="button"
-									onClick={updateThumbnailSelection}
-									className="btn-primary"
-									disabled={isPending || isConfirming}
-								>
-									{isPending || isConfirming
-										? "Updating..."
-										: "Update Thumbnail Selection"}
-								</button>
-							</div>
-						</div>
-					) : null}
-
-					{/* Add Collector Artwork */}
-					{tokenData && allowAddArtwork ? (
-						<div
-							className={`
-								p-6 rounded-xl
-								${
-									isDarkMode
-										? "bg-surface-dark border border-border-dark"
-										: "bg-surface-light border border-border-light shadow-soft"
-								}
-							`}
-						>
-							<h3
-								className={`
-									text-xl font-bold mb-2
-									${isDarkMode ? "text-text-primary-dark" : "text-text-primary-light"}
-								`}
-							>
-								Add Your Backup Links
-							</h3>
-							<p
-								className={`
-									text-sm mb-4
-									${isDarkMode ? "text-text-secondary-dark" : "text-text-secondary-light"}
-								`}
-							>
-								Help preserve this NFT by adding your own backup locations
-							</p>
-							<div className="space-y-4">
-								<div className="flex gap-2">
-									<input
-										className="input-field flex-1"
-										placeholder="ipfs://... or https://..."
-										value={newArtworkUri}
-										onChange={(e) => setNewArtworkUri(e.target.value)}
-									/>
-									<button
-										type="button"
-										onClick={addCollectorArtworkUri}
-										className="btn-primary"
-										disabled={isPending || isConfirming}
-									>
-										{isPending || isConfirming ? "Adding..." : "Add"}
-									</button>
-								</div>
-								<p className="help-text">
-									{isHtmlMode 
-										? "Your links will be automatically tried if artist's links fail"
-										: "Your links can be selected as the display source"}
-								</p>
-
-								{collectorArtworkUris && collectorArtworkUris.length > 0 ? (
-									<div className="space-y-2">
-										<p
-											className={`text-sm ${
-												isDarkMode ? "text-zinc-400" : "text-zinc-600"
-											}`}
-										>
-											Your backup links:
-										</p>
-										{collectorArtworkUris.map((uri: string, index: number) => (
-											<div
-												key={index}
-												className={`flex gap-2 items-center p-3 ${
-													isDarkMode
-														? "bg-zinc-800"
-														: "bg-zinc-100 border border-zinc-300"
-												} rounded`}
-											>
-												<span
-													className={`flex-1 text-sm font-mono ${
-														isDarkMode ? "text-zinc-300" : "text-zinc-700"
-													} break-all`}
-												>
-													{uri}
-												</span>
-												<button
-													type="button"
-													onClick={() => removeCollectorArtworkUri(index)}
-													disabled={isPending || isConfirming}
-													className={`
-														px-3 py-1 text-sm font-semibold rounded
-														transition-colors duration-200
-														${
-															isDarkMode
-																? "text-red-400 hover:bg-red-400 hover:bg-opacity-20"
-																: "text-red-600 hover:bg-red-100"
-														}
-														disabled:opacity-50 disabled:cursor-not-allowed
-													`}
-												>
-													Remove
-												</button>
-											</div>
-										))}
-									</div>
-								) : null}
-							</div>
-						</div>
-					) : null}
-
-					{/* Permissions Notice */}
-					{tokenData &&
-					!allowToggleDisplay &&
-					!allowSelectArtwork &&
-					(isOnChainThumbnail || !allowSelectThumbnail) &&
-					!allowAddArtwork ? (
-						<div className="card">
-							<div className="flex items-center gap-3">
-								<svg
-									className="w-6 h-6 ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}"
-									fill="none"
-									stroke="currentColor"
-									viewBox="0 0 24 24"
-								>
-									<path
-										strokeLinecap="round"
-										strokeLinejoin="round"
-										strokeWidth={2}
-										d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-									/>
-								</svg>
-								<div>
-									<p className="${isDarkMode ? '${isDarkMode ? 'text-zinc-300' : 'text-zinc-700'}' : 'text-zinc-700'} font-medium">
-										No Collector Permissions
-									</p>
-									<p className="${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'} text-sm">
-										This token doesn't allow any collector updates. All settings
-										are controlled by the artist.
-									</p>
-								</div>
-							</div>
-						</div>
-					) : null}
-
-					{/* Status Messages */}
-					{hash && !isSuccess && (
-						<div className="text-center text-sm ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}">
-							Transaction submitted. Waiting for confirmation...
-						</div>
+					{token && (
+						<Section title="Artist's links" description="Checked from your browser just now.">
+							<UriList uris={token.artistUris} selectedIndex={token.selectedArtistUriIndex} showSelection={token.displayMode === 0} />
+						</Section>
 					)}
 
-					{/* Loading and Error Messages */}
-					{tokenDataLoading && tokenId && (
-						<div className="text-center text-sm ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}">
-							Loading token data...
-						</div>
-					)}
+					{sections.map((s) => (
+						<Section key={s.key} title={s.title} description={s.description}>
+							{s.body}
+						</Section>
+					))}
 
-					{tokenDataError && tokenId && (
-						<div className="card bg-red-500 bg-opacity-10 border-red-500 border-opacity-30">
-							<div className="text-center py-6">
-								<svg
-									className="w-10 h-10 text-red-400 mx-auto mb-3"
-									fill="none"
-									stroke="currentColor"
-									viewBox="0 0 24 24"
-								>
-									<path
-										strokeLinecap="round"
-										strokeLinejoin="round"
-										strokeWidth={2}
-										d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-									/>
-								</svg>
-								<h3 className="text-lg text-red-300 mb-2">
-									Error Loading Token Data
-								</h3>
-								<p className="text-red-200 text-sm mb-4">
-									{tokenDataError?.message ||
-										"Failed to load token data from contract"}
-								</p>
-								<div className="space-y-2 text-sm text-red-300">
-									<p>
-										<strong>Possible reasons:</strong>
-									</p>
-									<ul className="text-left space-y-1 max-w-md mx-auto">
-										<li>• Token #{tokenId} doesn't exist in this collection</li>
-										<li>• You don't own this token</li>
-										<li>• Contract not deployed or wrong address</li>
-										<li>• Network connection issue</li>
-									</ul>
-									</div>
-									<button
-										onClick={() => void refetchTokenReads()}
-										className="btn-ghost text-red-300 hover:text-red-200 mt-4"
-									>
-									Retry Loading
-								</button>
-							</div>
-						</div>
-					)}
-
-					{!tokenDataLoading && !tokenDataError && !tokenData && tokenId && (
-						<div className="card bg-yellow-500 bg-opacity-10 border-yellow-500 border-opacity-30">
-							<div className="text-center py-6">
-								<svg
-									className="w-10 h-10 text-yellow-400 mx-auto mb-3"
-									fill="none"
-									stroke="currentColor"
-									viewBox="0 0 24 24"
-								>
-									<path
-										strokeLinecap="round"
-										strokeLinejoin="round"
-										strokeWidth={2}
-										d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-									/>
-								</svg>
-								<h3 className="text-lg text-yellow-300 mb-2">
-									Token Not Found
-								</h3>
-								<p className="text-yellow-200 text-sm">
-									Token #{tokenId} was not found in this collection or you don't
-									own it.
-								</p>
-							</div>
-						</div>
+					{nothingAllowed && (
+						<Notice tone="neutral" title="No owner permissions">
+							The artist hasn't allowed owners to change this token. Everything is controlled from the
+							artist's side.
+						</Notice>
 					)}
 				</div>
 			</div>
-
-			<Footer isDarkMode={isDarkMode} />
-		</PageBackground>
+		</Layout>
 	);
 }
