@@ -12,3 +12,5 @@ overrides:
   browserslist@<4.28.7: ^4.28.7
   baseline-browser-mapping@>=2.0.0 <2.11.0: ^2.11.0
   '@babel/core@<7.29.6': ^7.29.6
+  # Not a security floor: Node typings (pulled in by protobufjs and vite) match the Node 24 runtime on Vercel.
+  '@types/node': ^24.19.2
