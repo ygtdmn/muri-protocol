@@ -8,7 +8,7 @@ import type { Address } from "viem";
 export const BASE_CHAIN_ID = 8453;
 export const BASE_USDC: Address = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
 
-// Same-origin proxy that adds the Relay API key server-side (api/relay on Vercel, Vite proxy in dev).
+// Same-origin proxy that adds the Relay API key server-side (api/relay in the Worker, Vite proxy in dev).
 const RELAY_API_PATH = (import.meta.env.VITE_RELAY_API_URL as string | undefined) ?? "/api/relay";
 const relayApiUrl = () => new URL(RELAY_API_PATH, window.location.origin).toString().replace(/\/$/, "");
 

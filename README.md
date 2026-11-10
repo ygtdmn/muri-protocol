@@ -76,8 +76,10 @@ The script checks the signer is the owner, skips networks that are already up to
 cd frontend
 cp .env.example .env   # fill in the values below
 pnpm install
-pnpm dev
+pnpm dev               # http://localhost:5173
 ```
+
+The public `VITE_` values the deployed site is built with live in the committed `.env.production`. For `pnpm preview` (the built Worker in workerd), put `RELAY_API_KEY=...` in a git-ignored `.dev.vars`.
 
 | Variable | Needed for |
 |----------|-----------|
@@ -86,11 +88,18 @@ pnpm dev
 | `VITE_MANIFOLD_CLIENT_ID`, `VITE_MANIFOLD_APP_NAME` | Listing a creator's Manifold collections (pasting an address works without) |
 | `RELAY_API_KEY` | Relay swaps and bridges. Server-side only, never `VITE_`-prefixed |
 
-`pnpm build` type-checks the app, the Vercel function in `api/` and the Vite config, then writes `dist/` with one HTML file per page so link previews get the right title and image.
+`pnpm typecheck` generates the Worker types (`cf workers types`) and type-checks the app, the Worker in `worker/` and `api/`, and the Vite and Cloudflare configs. `pnpm build` writes the Worker and its assets to `.cloudflare/output/`, with one HTML file per page so link previews get the right title and image. `pnpm preview` serves that build in workerd, the same runtime as production.
 
 ### Deploying
 
-The frontend runs on Vercel with `frontend/` as the project root. `vercel.json` serves the pages by clean URL and routes `/api/relay/*` to `api/relay.ts`, which adds `RELAY_API_KEY` to Relay requests. Set the variables above in the Vercel project, `RELAY_API_KEY` included.
+The frontend is a Cloudflare Worker named `muri-protocol`, configured in `frontend/cloudflare.config.ts`. The Worker (`worker/index.ts`) answers `/api/relay/*` with `api/relay.ts`, which adds `RELAY_API_KEY` to Relay requests, and leaves everything else to the static assets: pages by clean URL (`/mint` serves `mint.html`), `404.html` for unknown paths, and the immutable cache header for `/assets/*` from `public/_headers`.
+
+```bash
+cd frontend
+pnpm run deploy        # cf deploy: builds and uploads the Worker
+```
+
+`RELAY_API_KEY` is a Worker secret. Set it once with `npx cf deploy --secrets-file <file>` (a dotenv file holding `RELAY_API_KEY=...`, kept out of git); later deploys keep it. The Worker answers on its workers.dev URL. The relay proxy accepts browser requests from `muri.yigitduman.com`, from the Worker's own workers.dev host, and from localhost.
 
 **Stack:**
 - Contracts: Solidity 0.8.30, Foundry, Solady

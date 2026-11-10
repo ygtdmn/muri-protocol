@@ -184,7 +184,7 @@ export default function Terms() {
 								name="Other storage hosts"
 								role="Any other link is fetched from wherever it points, for example Amazon S3, GitHub, the Internet Archive or the artist's own server."
 							/>
-							<ThirdParty name="Vercel" url="https://vercel.com" role="Hosts the Site and its API proxy." />
+							<ThirdParty name="Cloudflare" url="https://www.cloudflare.com" role="Hosts the Site and its API proxy." />
 							<ThirdParty name="Google Fonts" url="https://fonts.google.com" role="Serves the Site's typefaces." />
 							<ThirdParty
 								name="Explorers and marketplaces"

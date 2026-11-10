@@ -2,6 +2,7 @@ import { defineConfig, loadEnv } from "vite";
 import type { Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+import { cloudflare } from "@cloudflare/vite-plugin";
 import { HEAD_END, HEAD_START, PAGES, SITE_URL, renderHead } from "./src/lib/seo.ts";
 import type { PageMeta } from "./src/lib/seo.ts";
 import { handleRelay } from "./api/relay.ts";
@@ -9,7 +10,7 @@ import { handleRelay } from "./api/relay.ts";
 /**
  * Writes each page's title, description and share tags into its own HTML file (mint.html,
  * terms.html, 404.html…), because link preview crawlers read the HTML and never run the app.
- * Vercel serves them by clean URL (vercel.json). Also writes sitemap.xml and robots.txt.
+ * The Worker's assets serve them by clean URL (cloudflare.config.ts). Also writes sitemap.xml and robots.txt.
  */
 function pageMeta(): Plugin {
 	const block = new RegExp(`${HEAD_START}[\\s\\S]*?${HEAD_END}`);
@@ -45,7 +46,7 @@ function pageMeta(): Plugin {
 }
 
 /**
- * Serves /api/relay/* in dev through the same handler Vercel runs in production (api/relay.ts),
+ * Serves /api/relay/* in dev through the same handler the Worker runs in production (api/relay.ts),
  * so the allowlist, origin check and quote filtering behave identically.
  */
 function relayProxy(apiKey: string | undefined): Plugin {
@@ -54,8 +55,6 @@ function relayProxy(apiKey: string | undefined): Plugin {
 		configureServer(server) {
 			server.middlewares.use("/api/relay", async (req, res) => {
 				try {
-					// The handler reads the key from process.env, as on Vercel.
-					if (apiKey) process.env.RELAY_API_KEY = apiKey;
 					const chunks: Buffer[] = [];
 					for await (const chunk of req) chunks.push(chunk as Buffer);
 					const headers = new Headers();
@@ -68,7 +67,7 @@ function relayProxy(apiKey: string | undefined): Plugin {
 						headers,
 						body: req.method === "GET" || req.method === "HEAD" ? undefined : Buffer.concat(chunks),
 					});
-					const response = await handleRelay(request);
+					const response = await handleRelay(request, { apiKey });
 					res.statusCode = response.status;
 					response.headers.forEach((value, key) => res.setHeader(key, value));
 					res.end(Buffer.from(await response.arrayBuffer()));
@@ -87,6 +86,7 @@ export default defineConfig(({ mode }) => {
 	const relayApiKey = loadEnv(mode, process.cwd(), "").RELAY_API_KEY;
 
 	return {
-		plugins: [react(), tailwindcss(), pageMeta(), relayProxy(relayApiKey)],
+		// relayProxy before cloudflare(), so the dev server answers /api/relay itself.
+		plugins: [react(), tailwindcss(), pageMeta(), relayProxy(relayApiKey), cloudflare()],
 	};
 });

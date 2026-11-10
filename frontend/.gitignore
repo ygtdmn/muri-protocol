@@ -26,3 +26,10 @@ dist-ssr
 .env
 .env.*
 !.env.example
+!.env.production
+.dev.vars*
+
+# Cloudflare build output and generated types
+/dist/
+.cloudflare/
+.wrangler/

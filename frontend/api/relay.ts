@@ -1,11 +1,9 @@
-// Vercel function: forwards Relay API calls from the browser and adds the API key server-side.
+// Forwards Relay API calls from the browser and adds the API key server-side.
 // Relay asks integrators to keep the key out of client bundles and proxy browser traffic instead.
 // https://docs.relay.link/references/api/api-keys#proxy-api
 //
-// Reached as /api/relay/<path> through the rewrite in vercel.json (a [...path] filename only
-// catches nested paths in Next.js). The Vite dev server calls the same handler (vite.config.ts).
-
-declare const process: { env: Record<string, string | undefined> };
+// The Worker (worker/index.ts) calls it for /api/relay/<path>. The Vite dev server calls the same
+// handler (vite.config.ts).
 
 const RELAY_API = "https://api.relay.link";
 const SITE_HOST = "muri.yigitduman.com";
@@ -24,17 +22,15 @@ const STRIPPED_QUOTE_FIELDS = [
 	"depositFeePayer",
 ];
 
-/** This site, its Vercel previews, and local dev. */
-function allowedOrigin(origin: string) {
+/** This site, its own workers.dev URL, and local dev. */
+function allowedOrigin(origin: string, ownHost: string) {
 	try {
 		const { hostname } = new URL(origin);
 		return (
 			hostname === SITE_HOST ||
 			hostname === "localhost" ||
 			hostname === "127.0.0.1" ||
-			hostname === process.env.VERCEL_URL ||
-			hostname === process.env.VERCEL_BRANCH_URL ||
-			hostname === process.env.VERCEL_PROJECT_PRODUCTION_URL
+			(hostname.endsWith(".workers.dev") && hostname === ownHost)
 		);
 	} catch {
 		return false;
@@ -47,7 +43,7 @@ function allowedOrigin(origin: string) {
  */
 function fromThisSite(request: Request) {
 	const origin = request.headers.get("origin");
-	if (origin) return allowedOrigin(origin);
+	if (origin) return allowedOrigin(origin, new URL(request.url).hostname);
 	return request.headers.get("sec-fetch-site") === "same-origin";
 }
 
@@ -59,7 +55,12 @@ function relayPath(url: URL) {
 	return fromQuery ? `/${fromQuery.replace(/^\/+/, "")}` : "/";
 }
 
-export async function handleRelay(request: Request): Promise<Response> {
+export interface RelayOptions {
+	/** The Relay API key. Without it requests go out unauthenticated, at Relay's public rate limits. */
+	apiKey?: string;
+}
+
+export async function handleRelay(request: Request, { apiKey }: RelayOptions = {}): Promise<Response> {
 	if (!fromThisSite(request)) return Response.json({ message: "Forbidden" }, { status: 403 });
 
 	const url = new URL(request.url);
@@ -74,7 +75,7 @@ export async function handleRelay(request: Request): Promise<Response> {
 	if (contentType) headers.set("content-type", contentType);
 	const sdkVersion = request.headers.get("relay-sdk-version");
 	if (sdkVersion) headers.set("relay-sdk-version", sdkVersion);
-	if (process.env.RELAY_API_KEY) headers.set("x-api-key", process.env.RELAY_API_KEY);
+	if (apiKey) headers.set("x-api-key", apiKey);
 
 	let body = request.method === "GET" || request.method === "HEAD" ? undefined : await request.text();
 	if (body && path.startsWith("/quote")) {
@@ -82,7 +83,7 @@ export async function handleRelay(request: Request): Promise<Response> {
 			const quote = JSON.parse(body) as Record<string, unknown>;
 			for (const field of STRIPPED_QUOTE_FIELDS) delete quote[field];
 			// Attribute quotes to this app. Relay only accepts a referrer on authenticated requests.
-			if (process.env.RELAY_API_KEY) quote.referrer = SITE_HOST;
+			if (apiKey) quote.referrer = SITE_HOST;
 			else delete quote.referrer;
 			body = JSON.stringify(quote);
 		} catch {
@@ -104,6 +105,3 @@ export async function handleRelay(request: Request): Promise<Response> {
 		},
 	});
 }
-
-export const GET = handleRelay;
-export const POST = handleRelay;
