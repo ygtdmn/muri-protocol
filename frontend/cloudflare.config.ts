@@ -4,8 +4,8 @@ export default defineConfig({
 	worker: defineWorker({
 		name: "muri-protocol",
 		// Only the workers.dev URL for now. muri.yigitduman.com stays where it is until DNS moves.
-		domains: [],
-		workersDev: true,
+		domains: ["muri.yigitduman.com"],
+		workersDev: false,
 		previewUrls: false,
 		entrypoint: "./worker/index.ts",
 		compatibilityDate: "2026-11-08",
