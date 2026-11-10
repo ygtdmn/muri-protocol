@@ -46,6 +46,31 @@ function pageMeta(): Plugin {
 }
 
 /**
+ * The per-page HTML files only exist after a build, so in dev every page loads index.html and the
+ * router takes it from there (as Vite's own SPA fallback did before the Cloudflare plugin).
+ */
+function devPages(): Plugin {
+	return {
+		name: "muri-dev-pages",
+		apply: "serve",
+		configureServer(server) {
+			server.middlewares.use((req, _res, next) => {
+				const path = req.url?.split("?")[0] ?? "/";
+				// HEAD too: Base Account's popup check sends HEAD to the current page.
+				const isPage =
+					(req.method === "HEAD" || (req.method === "GET" && req.headers.accept?.includes("text/html"))) &&
+					!/\.[a-z0-9]+$/i.test(path);
+				if (isPage && path !== "/" && !path.startsWith("/api/") && !path.startsWith("/@")) {
+					req.url = "/";
+					req.originalUrl = "/";
+				}
+				next();
+			});
+		},
+	};
+}
+
+/**
  * Serves /api/relay/* in dev through the same handler the Worker runs in production (api/relay.ts),
  * so the allowlist, origin check and quote filtering behave identically.
  */
@@ -86,7 +111,7 @@ export default defineConfig(({ mode }) => {
 	const relayApiKey = loadEnv(mode, process.cwd(), "").RELAY_API_KEY;
 
 	return {
-		// relayProxy before cloudflare(), so the dev server answers /api/relay itself.
-		plugins: [react(), tailwindcss(), pageMeta(), relayProxy(relayApiKey), cloudflare()],
+		// devPages and relayProxy before cloudflare(), so the dev server handles those requests itself.
+		plugins: [react(), tailwindcss(), pageMeta(), devPages(), relayProxy(relayApiKey), cloudflare()],
 	};
 });
