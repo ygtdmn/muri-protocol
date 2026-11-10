@@ -99,7 +99,9 @@ cd frontend
 pnpm run deploy        # cf deploy: builds and uploads the Worker
 ```
 
-`RELAY_API_KEY` is a Worker secret. Set it once with `npx cf deploy --secrets-file <file>` (a dotenv file holding `RELAY_API_KEY=...`, kept out of git); later deploys keep it. The Worker answers on its workers.dev URL. The relay proxy accepts browser requests from `muri.yigitduman.com`, from the Worker's own workers.dev host, and from localhost.
+Workers Builds deploys every push to main: root directory `frontend`, no build command, deploy command `pnpm run deploy`, preview builds off, `NODE_VERSION` 24. The command above does the same by hand.
+
+`RELAY_API_KEY` is a Worker secret. Set it once with `npx cf deploy --secrets-file <file>` (a dotenv file holding `RELAY_API_KEY=...`, kept out of git); later deploys keep it. The Worker serves the custom domain muri.yigitduman.com; the config sets `workersDev: false` and `previewUrls: false`, and a deploy applies these, so a dashboard toggle comes back on the next push unless the config agrees. The relay proxy accepts browser requests from `muri.yigitduman.com`, from the Worker's own workers.dev host, and from localhost.
 
 **Stack:**
 - Contracts: Solidity 0.8.30, Foundry, Solady
